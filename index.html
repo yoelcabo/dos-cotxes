@@ -76,8 +76,8 @@
 
         const bottomMargin = 20; // Reduït de 30 a 20
 
-        let car1 = { x: laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 0 };
-        let car2 = { x: 3 * laneWidth + laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 3 };
+        let car1 = { x: laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 0, targetX: laneWidth / 2 - carWidth / 2 };
+        let car2 = { x: 3 * laneWidth + laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 3, targetX: 3 * laneWidth + laneWidth / 2 - carWidth / 2 };
         let obstacles = [];
         let score = 0;
         let gameOver = false;
@@ -86,9 +86,10 @@
         const minObstacleDistance = 150;
         const maxObstaclesPerPair = 3;
         const minObstaclesPerPair = 1;
-        let speed = 200; // Augmentat de 5 a 200 (píxels per segon)
-        const maxSpeed = 600; // Augmentat de 15 a 600 (píxels per segon)
-        const acceleration = 10; // Augmentat de 0.002 a 10 (píxels per segon al quadrat)
+        const startSpeed = 300;
+        const maxSpeed = 1000;
+        const acceleration = 10;
+        let speed = startSpeed;
 
         let lastObstacleTime = 0;
         const obstacleInterval = 1000; // Interval mínim entre la creació d'obstacles (en mil·lisegons)
@@ -105,6 +106,18 @@
         let lastTime = 0;
         const fixedDeltaTime = 1000 / 60; // Simulem 60 FPS
         let accumulator = 0;
+
+        const carTransitionDuration = 50; // ms per a la transició durant el joc
+        let car1TransitionStart = 0;
+        let car2TransitionStart = 0;
+
+        let gameStartTransition = false;
+        let gameStartTransitionStart = 0;
+        const gameStartTransitionDuration = 400; // ms per a la transició inicial
+
+        let gameRestartTransition = false;
+        let gameRestartTransitionStart = 0;
+        const gameRestartTransitionDuration = 400; // ms per a la transició de reinici
 
         function drawCar(x, y, color) {
             ctx.save();
@@ -459,14 +472,54 @@
         }
 
         function resetGame() {
-            car1 = { x: laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 0 };
-            car2 = { x: 3 * laneWidth + laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 3 };
+            const startY = canvas.height - carHeight - bottomMargin;
+            const startX1 = laneWidth / 2 - carWidth / 2;
+            const startX2 = 3 * laneWidth + laneWidth / 2 - carWidth / 2;
+
+            if (!gameStarted) {
+                // Primera vegada que comença el joc
+                car1 = { 
+                    x: canvas.width / 4 - carWidth / 2,
+                    y: startY, 
+                    lane: 0, 
+                    targetX: startX1,
+                    targetY: startY
+                };
+                car2 = { 
+                    x: 3 * canvas.width / 4 - carWidth / 2,
+                    y: startY, 
+                    lane: 3, 
+                    targetX: startX2,
+                    targetY: startY
+                };
+                gameStartTransition = true;
+                gameStartTransitionStart = performance.now();
+            } else {
+                // Reinici del joc
+                car1 = { 
+                    x: car1.x, 
+                    y: startY, 
+                    lane: 0, 
+                    targetX: startX1,
+                    targetY: startY
+                };
+                car2 = { 
+                    x: car2.x, 
+                    y: startY, 
+                    lane: 3, 
+                    targetX: startX2,
+                    targetY: startY
+                };
+                gameRestartTransition = true;
+                gameRestartTransitionStart = performance.now();
+            }
+
             obstacles = [];
             score = 0;
             gameOver = false;
             gameStarted = true;
-            speed = 200; // Reiniciar la velocitat al valor inicial
-            lastObstacleTime = 0; // Reiniciar el temps de l'últim obstacle
+            speed = startSpeed;
+            lastObstacleTime = 0;
         }
 
         function gameLoop(currentTime) {
@@ -480,7 +533,7 @@
 
             if (!gameStarted) {
                 drawStartScreen();
-            } else if (!gameOver) {
+            } else if (gameStartTransition || gameRestartTransition || !gameOver) {
                 while (accumulator >= fixedDeltaTime) {
                     updateGame(fixedDeltaTime);
                     accumulator -= fixedDeltaTime;
@@ -493,9 +546,48 @@
         }
 
         function updateGame(deltaTime) {
-            moveObstacles(deltaTime);
-            checkCollision();
-            createObstacle();
+            updateCarPositions(deltaTime);
+            if (!gameStartTransition && !gameRestartTransition) {
+                moveObstacles(deltaTime);
+                checkCollision();
+                createObstacle();
+            }
+        }
+
+        function updateCarPositions(deltaTime) {
+            const currentTime = performance.now();
+            
+            if (gameStartTransition) {
+                const progress = Math.min((currentTime - gameStartTransitionStart) / gameStartTransitionDuration, 1);
+                car1.x = car1.x + (car1.targetX - car1.x) * progress;
+                car2.x = car2.x + (car2.targetX - car2.x) * progress;
+                if (progress === 1) {
+                    gameStartTransition = false;
+                    car1.x = car1.targetX;
+                    car2.x = car2.targetX;
+                }
+            } else if (gameRestartTransition) {
+                const progress = Math.min((currentTime - gameRestartTransitionStart) / gameRestartTransitionDuration, 1);
+                car1.x = car1.x + (car1.targetX - car1.x) * progress;
+                car2.x = car2.x + (car2.targetX - car2.x) * progress;
+                if (progress === 1) {
+                    gameRestartTransition = false;
+                    car1.x = car1.targetX;
+                    car2.x = car2.targetX;
+                }
+            } else {
+                if (car1TransitionStart > 0) {
+                    const progress = Math.min((currentTime - car1TransitionStart) / carTransitionDuration, 1);
+                    car1.x = car1.x + (car1.targetX - car1.x) * progress;
+                    if (progress === 1) car1TransitionStart = 0;
+                }
+                
+                if (car2TransitionStart > 0) {
+                    const progress = Math.min((currentTime - car2TransitionStart) / carTransitionDuration, 1);
+                    car2.x = car2.x + (car2.targetX - car2.x) * progress;
+                    if (progress === 1) car2TransitionStart = 0;
+                }
+            }
         }
 
         document.addEventListener('keydown', (event) => {
@@ -508,22 +600,38 @@
 
             if (!gameStarted || gameOver) return;
 
+            const currentTime = performance.now();
+
             switch(event.key) {
                 case 'a':
-                    if (car1.lane > 0) car1.lane--;
+                    if (car1.lane > 0) {
+                        car1.lane--;
+                        car1.targetX = car1.lane * laneWidth + laneWidth / 2 - carWidth / 2;
+                        car1TransitionStart = currentTime;
+                    }
                     break;
                 case 'd':
-                    if (car1.lane < 1) car1.lane++;
+                    if (car1.lane < 1) {
+                        car1.lane++;
+                        car1.targetX = car1.lane * laneWidth + laneWidth / 2 - carWidth / 2;
+                        car1TransitionStart = currentTime;
+                    }
                     break;
                 case 'ArrowLeft':
-                    if (car2.lane > 2) car2.lane--;
+                    if (car2.lane > 2) {
+                        car2.lane--;
+                        car2.targetX = car2.lane * laneWidth + laneWidth / 2 - carWidth / 2;
+                        car2TransitionStart = currentTime;
+                    }
                     break;
                 case 'ArrowRight':
-                    if (car2.lane < 3) car2.lane++;
+                    if (car2.lane < 3) {
+                        car2.lane++;
+                        car2.targetX = car2.lane * laneWidth + laneWidth / 2 - carWidth / 2;
+                        car2TransitionStart = currentTime;
+                    }
                     break;
             }
-            car1.x = car1.lane * laneWidth + laneWidth / 2 - carWidth / 2;
-            car2.x = car2.lane * laneWidth + laneWidth / 2 - carWidth / 2;
         });
 
         // Iniciar el joc
