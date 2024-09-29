@@ -59,10 +59,10 @@
     <div id="gameContainer">
         <canvas id="gameCanvas" width="400" height="650"></canvas>
         <div id="controlsPanel">
-            <div class="controlKey">A</div>
-            <div class="controlKey">D</div>
-            <div class="controlKey">←</div>
-            <div class="controlKey">→</div>
+            <div class="controlKey" data-lane="0">A</div>
+            <div class="controlKey" data-lane="1">D</div>
+            <div class="controlKey" data-lane="2">←</div>
+            <div class="controlKey" data-lane="3">→</div>
         </div>
     </div>
     <script>
@@ -468,7 +468,8 @@
             
             ctx.fillStyle = 'white';
             ctx.font = '20px Poppins';
-            ctx.fillText('per començar', canvas.width / 2, canvas.height / 2 + 90);
+            ctx.fillText('Toca la pantalla per començar', canvas.width / 2, canvas.height / 2 + 130);
+            ctx.fillText('i moure els cotxes', canvas.width / 2, canvas.height / 2 + 160);
         }
 
         function resetGame() {
@@ -590,7 +591,63 @@
             }
         }
 
-        document.addEventListener('keydown', (event) => {
+        function handleClick(event) {
+            if (!gameStarted) {
+                resetGame();
+                return;
+            }
+
+            if (gameOver) {
+                resetGame();
+                return;
+            }
+
+            let lane;
+            if (event.target.classList.contains('controlKey')) {
+                lane = parseInt(event.target.getAttribute('data-lane'));
+            } else {
+                const rect = canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                lane = Math.floor(x / laneWidth);
+            }
+
+            const currentTime = performance.now();
+
+            if (lane < 2) {
+                // Cotxe esquerre
+                if (lane < car1.lane) {
+                    if (car1.lane > 0) {
+                        car1.lane--;
+                        car1.targetX = car1.lane * laneWidth + laneWidth / 2 - carWidth / 2;
+                        car1TransitionStart = currentTime;
+                    }
+                } else if (lane > car1.lane) {
+                    if (car1.lane < 1) {
+                        car1.lane++;
+                        car1.targetX = car1.lane * laneWidth + laneWidth / 2 - carWidth / 2;
+                        car1TransitionStart = currentTime;
+                    }
+                }
+            } else {
+                // Cotxe dret
+                if (lane < car2.lane) {
+                    if (car2.lane > 2) {
+                        car2.lane--;
+                        car2.targetX = car2.lane * laneWidth + laneWidth / 2 - carWidth / 2;
+                        car2TransitionStart = currentTime;
+                    }
+                } else if (lane > car2.lane) {
+                    if (car2.lane < 3) {
+                        car2.lane++;
+                        car2.targetX = car2.lane * laneWidth + laneWidth / 2 - carWidth / 2;
+                        car2TransitionStart = currentTime;
+                    }
+                }
+            }
+        }
+
+        // Afegeix aquesta funció després de la funció handleClick
+        function handleKeyDown(event) {
             if (event.code === 'Space') {
                 if (!gameStarted || gameOver) {
                     resetGame();
@@ -632,9 +689,17 @@
                     }
                     break;
             }
-        });
+        }
 
+        // Modifica la part final del codi per incloure l'event listener de les tecles
         // Iniciar el joc
+        document.getElementById('gameContainer').addEventListener('click', handleClick);
+        document.getElementById('gameContainer').addEventListener('touchstart', function(event) {
+            event.preventDefault();
+            const touch = event.touches[0];
+            handleClick(touch);
+        });
+        document.addEventListener('keydown', handleKeyDown);
         requestAnimationFrame(gameLoop);
     </script>
 </body>
