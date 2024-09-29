@@ -74,8 +74,10 @@
         const obstacleSize = 40; // Augmentat la mida dels obstacles
         const laneWidth = canvas.width / 4;
 
-        let car1 = { x: laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - 10, lane: 0 };
-        let car2 = { x: 3 * laneWidth + laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - 10, lane: 3 };
+        const bottomMargin = 20; // Reduït de 30 a 20
+
+        let car1 = { x: laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 0 };
+        let car2 = { x: 3 * laneWidth + laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 3 };
         let obstacles = [];
         let score = 0;
         let gameOver = false;
@@ -84,9 +86,9 @@
         const minObstacleDistance = 150;
         const maxObstaclesPerPair = 3;
         const minObstaclesPerPair = 1;
-        let speed = 5;
-        const maxSpeed = 15;
-        const acceleration = 0.002;
+        let speed = 200; // Augmentat de 5 a 200 (píxels per segon)
+        const maxSpeed = 600; // Augmentat de 15 a 600 (píxels per segon)
+        const acceleration = 10; // Augmentat de 0.002 a 10 (píxels per segon al quadrat)
 
         let lastObstacleTime = 0;
         const obstacleInterval = 1000; // Interval mínim entre la creació d'obstacles (en mil·lisegons)
@@ -99,6 +101,10 @@
         const leftSquareColor = '#0097A7';  // Més fosc que el cotxe
         const rightCircleColor = '#FF80AB'; // Més clar que el cotxe
         const rightSquareColor = '#C2185B'; // Més fosc que el cotxe
+
+        let lastTime = 0;
+        const fixedDeltaTime = 1000 / 60; // Simulem 60 FPS
+        let accumulator = 0;
 
         function drawCar(x, y, color) {
             ctx.save();
@@ -264,9 +270,10 @@
             return true;
         }
 
-        function moveObstacles() {
+        function moveObstacles(deltaTime) {
+            const moveDistance = (speed * deltaTime) / 1000; // Convertim la velocitat a píxels per mil·lisegon
             obstacles.forEach(obstacle => {
-                obstacle.y += speed;
+                obstacle.y += moveDistance;
                 
                 // Comprovar si l'obstacle ha estat evitat
                 if (!obstacle.isCircle && !obstacle.avoided && obstacle.y > canvas.height) {
@@ -293,7 +300,7 @@
             
             // Incrementar la velocitat
             if (speed < maxSpeed) {
-                speed += acceleration;
+                speed += (acceleration * deltaTime) / 1000;
             }
 
             // Assegurar-se que hi ha prou obstacles
@@ -428,7 +435,12 @@
             ctx.textAlign = 'center';
             ctx.fillText('Dos cotxes', canvas.width / 2, canvas.height / 2 - 40);
             
-            // Dibuixar la tecla d'espai menys arrodonida
+            // Dibuixar els cotxes a la part inferior amb el marge ajustat
+            const carY = canvas.height - carHeight - bottomMargin;
+            drawCar(canvas.width / 4 - carWidth / 2, carY, leftCarColor);
+            drawCar(3 * canvas.width / 4 - carWidth / 2, carY, rightCarColor);
+            
+            // Dibuixar la tecla d'espai
             ctx.fillStyle = '#f0f0f0';
             ctx.beginPath();
             ctx.roundRect(canvas.width / 2 - 75, canvas.height / 2 + 20, 150, 40, 10);
@@ -447,28 +459,43 @@
         }
 
         function resetGame() {
-            car1 = { x: laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - 10, lane: 0 };
-            car2 = { x: 3 * laneWidth + laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - 10, lane: 3 };
+            car1 = { x: laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 0 };
+            car2 = { x: 3 * laneWidth + laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 3 };
             obstacles = [];
             score = 0;
             gameOver = false;
             gameStarted = true;
-            speed = 5;
+            speed = 200; // Reiniciar la velocitat al valor inicial
             lastObstacleTime = 0; // Reiniciar el temps de l'últim obstacle
         }
 
-        function gameLoop() {
+        function gameLoop(currentTime) {
+            if (lastTime === 0) {
+                lastTime = currentTime;
+            }
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+            
+            accumulator += deltaTime;
+
             if (!gameStarted) {
                 drawStartScreen();
             } else if (!gameOver) {
-                moveObstacles();
-                checkCollision();
-                createObstacle();
+                while (accumulator >= fixedDeltaTime) {
+                    updateGame(fixedDeltaTime);
+                    accumulator -= fixedDeltaTime;
+                }
                 drawGame();
             } else {
                 drawGame(); // Això dibuixarà la pantalla de "Game Over"
             }
             requestAnimationFrame(gameLoop);
+        }
+
+        function updateGame(deltaTime) {
+            moveObstacles(deltaTime);
+            checkCollision();
+            createObstacle();
         }
 
         document.addEventListener('keydown', (event) => {
@@ -499,7 +526,8 @@
             car2.x = car2.lane * laneWidth + laneWidth / 2 - carWidth / 2;
         });
 
-        gameLoop();
+        // Iniciar el joc
+        requestAnimationFrame(gameLoop);
     </script>
 </body>
 </html>
