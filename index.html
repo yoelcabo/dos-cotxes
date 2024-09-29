@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El Meu Joc Two Cars Modern</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(to bottom, #4e54c8, #8f94fb);
+            font-family: Arial, sans-serif;
+        }
+        #gameCanvas {
+            border-radius: 10px 10px 0 0;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+        #controlsPanel {
+            width: 400px;
+            height: 60px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 0 0 10px 10px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+        .controlKey {
+            width: 40px;
+            height: 40px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <div id="controlsPanel">
+        <div class="controlKey">A</div>
+        <div class="controlKey">D</div>
+        <div class="controlKey">←</div>
+        <div class="controlKey">→</div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const carWidth = 40;
+        const carHeight = 60;
+        const obstacleSize = 30;
+        const laneWidth = canvas.width / 4;
+
+        let car1 = { x: laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - 10, lane: 0 };
+        let car2 = { x: 3 * laneWidth + laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - 10, lane: 3 };
+        let obstacles = [];
+        let score = 0;
+        let gameOver = false;
+        let gameStarted = false;
+
+        const minObstacleDistance = 150;
+        const maxObstaclesPerPair = 3;
+        const minObstaclesPerPair = 1;
+        let speed = 5;
+        const maxSpeed = 10;
+        const acceleration = 0.002;
+
+        let lastObstacleTime = 0;
+        const obstacleInterval = 1000; // Interval mínim entre la creació d'obstacles (en mil·lisegons)
+
+        let lastAvoidedObstacle = null;
+
+        function drawCar(x, y, color) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(x, y + carHeight);
+            ctx.lineTo(x + carWidth / 2, y);
+            ctx.lineTo(x + carWidth, y + carHeight);
+            ctx.closePath();
+            ctx.fill();
+
+            // Afegir llums
+            ctx.fillStyle = 'yellow';
+            ctx.fillRect(x + 5, y + carHeight - 5, 5, 5);
+            ctx.fillRect(x + carWidth - 10, y + carHeight - 5, 5, 5);
+        }
+
+        function drawObstacle(x, y, isCircle) {
+            const gradient = ctx.createRadialGradient(
+                x + obstacleSize / 2, y + obstacleSize / 2, 0,
+                x + obstacleSize / 2, y + obstacleSize / 2, obstacleSize / 2
+            );
+            
+            if (isCircle) {
+                gradient.addColorStop(0, '#7FFF00');
+                gradient.addColorStop(1, '#32CD32');
+            } else {
+                gradient.addColorStop(0, '#FF4500');
+                gradient.addColorStop(1, '#8B0000');
+            }
+
+            ctx.fillStyle = gradient;
+            if (isCircle) {
+                ctx.beginPath();
+                ctx.arc(x + obstacleSize / 2, y + obstacleSize / 2, obstacleSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                ctx.fillRect(x, y, obstacleSize, obstacleSize);
+            }
+        }
+
+        function createObstacle() {
+            const currentTime = Date.now();
+            if (currentTime - lastObstacleTime < obstacleInterval) return;
+
+            const leftPair = obstacles.filter(obs => obs.lane < 2);
+            const rightPair = obstacles.filter(obs => obs.lane >= 2);
+
+            if (leftPair.length < maxObstaclesPerPair && Math.random() < 0.5) {
+                if (createObstacleForPair(0, 1)) lastObstacleTime = currentTime;
+            }
+            if (rightPair.length < maxObstaclesPerPair && Math.random() < 0.5) {
+                if (createObstacleForPair(2, 3)) lastObstacleTime = currentTime;
+            }
+        }
+
+        function createObstacleForPair(lane1, lane2) {
+            const pairObstacles = obstacles.filter(obs => obs.lane === lane1 || obs.lane === lane2);
+            
+            if (pairObstacles.length >= maxObstaclesPerPair) return false;
+
+            const availableLanes = [lane1, lane2].filter(lane => 
+                !pairObstacles.some(obs => Math.abs(obs.y - (-obstacleSize)) < minObstacleDistance)
+            );
+
+            if (availableLanes.length === 0) return false;
+
+            const lane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
+            const isCircle = Math.random() < 0.5;
+
+            obstacles.push({
+                x: lane * laneWidth + laneWidth / 2 - obstacleSize / 2,
+                y: -obstacleSize,
+                lane: lane,
+                isCircle: isCircle,
+                avoided: false
+            });
+
+            return true;
+        }
+
+        function moveObstacles() {
+            obstacles.forEach(obstacle => {
+                obstacle.y += speed;
+                
+                // Comprovar si l'obstacle ha estat evitat
+                if (!obstacle.isCircle && !obstacle.avoided && obstacle.y > canvas.height) {
+                    score++;
+                    obstacle.avoided = true;
+                    lastAvoidedObstacle = obstacle;
+                }
+            });
+            
+            obstacles = obstacles.filter(obstacle => obstacle.y < canvas.height || obstacle === lastAvoidedObstacle);
+            
+            // Comprovar si s'ha escapat algun cercle
+            obstacles.forEach(obstacle => {
+                if (obstacle.isCircle && obstacle.y + obstacleSize > canvas.height) {
+                    gameOver = true;
+                }
+            });
+            
+            // Eliminar l'últim obstacle evitat de la llista
+            if (lastAvoidedObstacle && lastAvoidedObstacle.y > canvas.height + obstacleSize) {
+                obstacles = obstacles.filter(obs => obs !== lastAvoidedObstacle);
+                lastAvoidedObstacle = null;
+            }
+            
+            // Incrementar la velocitat
+            if (speed < maxSpeed) {
+                speed += acceleration;
+            }
+
+            // Assegurar-se que hi ha prou obstacles
+            const leftPair = obstacles.filter(obs => obs.lane < 2);
+            const rightPair = obstacles.filter(obs => obs.lane >= 2);
+
+            if (leftPair.length < minObstaclesPerPair) {
+                createObstacleForPair(0, 1);
+            }
+            if (rightPair.length < minObstaclesPerPair) {
+                createObstacleForPair(2, 3);
+            }
+        }
+
+        function checkCollision() {
+            obstacles.forEach(obstacle => {
+                const car = (obstacle.lane < 2) ? car1 : car2;
+                if (
+                    car.y < obstacle.y + obstacleSize &&
+                    car.y + carHeight > obstacle.y &&
+                    car.lane === obstacle.lane
+                ) {
+                    if (obstacle.isCircle) {
+                        score++;
+                        // Eliminar l'obstacle recollit
+                        obstacles = obstacles.filter(obs => obs !== obstacle);
+                    } else {
+                        gameOver = true;
+                    }
+                }
+            });
+        }
+
+        function drawGame() {
+            // Fons del joc
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#1a237e');
+            gradient.addColorStop(1, '#4a148c');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Línies de carril
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 2;
+            for (let i = 1; i < 4; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * laneWidth, 0);
+                ctx.lineTo(i * laneWidth, canvas.height);
+                ctx.stroke();
+            }
+
+            drawCar(car1.x, car1.y, '#4ECDC4');
+            drawCar(car2.x, car2.y, '#FF6B6B');
+            obstacles.forEach(obstacle => drawObstacle(obstacle.x, obstacle.y, obstacle.isCircle));
+
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText(`Puntuació: ${score}`, 10, 30);
+
+            if (gameOver) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 48px Arial';
+                
+                if (obstacles.some(obs => obs.isCircle && obs.y + obstacleSize > canvas.height)) {
+                    ctx.fillText("Se t'ha escapat!", canvas.width / 2 - 160, canvas.height / 2 - 50);
+                    ctx.font = 'bold 24px Arial';
+                    ctx.fillText("Has d'agafar tots els cercles", canvas.width / 2 - 140, canvas.height / 2 + 10);
+                } else {
+                    ctx.fillText('Has xocat!', canvas.width / 2 - 120, canvas.height / 2 - 50);
+                    ctx.font = 'bold 24px Arial';
+                    ctx.fillText("Has d'evitar els quadrats", canvas.width / 2 - 130, canvas.height / 2 + 10);
+                }
+                
+                ctx.font = 'bold 24px Arial';
+                ctx.fillText(`Puntuació final: ${score}`, canvas.width / 2 - 80, canvas.height / 2 + 50);
+                
+                // Dibuixar la tecla d'espai
+                ctx.fillStyle = '#f0f0f0';
+                ctx.fillRect(canvas.width / 2 - 75, canvas.height / 2 + 80, 150, 40);
+                ctx.strokeStyle = '#999';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(canvas.width / 2 - 75, canvas.height / 2 + 80, 150, 40);
+                
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 24px Arial';
+                ctx.fillText('ESPAI', canvas.width / 2 - 35, canvas.height / 2 + 108);
+                
+                ctx.fillStyle = 'white';
+                ctx.font = '20px Arial';
+                ctx.fillText('per tornar a jugar', canvas.width / 2 - 80, canvas.height / 2 + 140);
+            }
+        }
+
+        function drawStartScreen() {
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#1a237e');
+            gradient.addColorStop(1, '#4a148c');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 36px Arial';
+            ctx.fillText('Two Cars', canvas.width / 2 - 80, canvas.height / 2 - 40);
+            
+            // Dibuixar la tecla d'espai
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillRect(canvas.width / 2 - 75, canvas.height / 2 + 20, 150, 40);
+            ctx.strokeStyle = '#999';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(canvas.width / 2 - 75, canvas.height / 2 + 20, 150, 40);
+            
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText('ESPAI', canvas.width / 2 - 35, canvas.height / 2 + 48);
+            
+            ctx.fillStyle = 'white';
+            ctx.font = '20px Arial';
+            ctx.fillText('per començar', canvas.width / 2 - 60, canvas.height / 2 + 80);
+        }
+
+        function resetGame() {
+            car1 = { x: laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - 10, lane: 0 };
+            car2 = { x: 3 * laneWidth + laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - 10, lane: 3 };
+            obstacles = [];
+            score = 0;
+            gameOver = false;
+            gameStarted = true;
+            speed = 5;
+            lastObstacleTime = 0; // Reiniciar el temps de l'últim obstacle
+        }
+
+        function gameLoop() {
+            if (!gameStarted) {
+                drawStartScreen();
+            } else if (!gameOver) {
+                moveObstacles();
+                checkCollision();
+                createObstacle();
+                drawGame();
+            } else {
+                drawGame(); // Això dibuixarà la pantalla de "Game Over"
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Space') {
+                if (!gameStarted || gameOver) {
+                    resetGame();
+                }
+                return;
+            }
+
+            if (!gameStarted || gameOver) return;
+
+            switch(event.key) {
+                case 'a':
+                    if (car1.lane > 0) car1.lane--;
+                    break;
+                case 'd':
+                    if (car1.lane < 1) car1.lane++;
+                    break;
+                case 'ArrowLeft':
+                    if (car2.lane > 2) car2.lane--;
+                    break;
+                case 'ArrowRight':
+                    if (car2.lane < 3) car2.lane++;
+                    break;
+            }
+            car1.x = car1.lane * laneWidth + laneWidth / 2 - carWidth / 2;
+            car2.x = car2.lane * laneWidth + laneWidth / 2 - carWidth / 2;
+        });
+
+        gameLoop();
+    </script>
+</body>
+</html>
