@@ -336,11 +336,11 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Línies de carril
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
             ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; // Mateix color per a totes les línies
             for (let i = 1; i < 4; i++) {
                 if (i === 2) {
-                    // Línia central doble
+                    // Línia central doble contínua
                     ctx.beginPath();
                     ctx.moveTo(i * laneWidth - 2, 0);
                     ctx.lineTo(i * laneWidth - 2, canvas.height);
@@ -352,13 +352,13 @@
                 } else {
                     // Línies discontínues
                     ctx.beginPath();
-                    ctx.setLineDash([30, 20]);
+                    ctx.setLineDash([20, 60]); // Segment de 20px, espai de 60px (3 vegades més llarg)
                     ctx.moveTo(i * laneWidth, 0);
                     ctx.lineTo(i * laneWidth, canvas.height);
                     ctx.stroke();
+                    ctx.setLineDash([]); // Restablir el patró de línia després de cada línia discontínua
                 }
             }
-            ctx.setLineDash([]);
 
             drawCar(car1.x, car1.y, leftCarColor);
             drawCar(car2.x, car2.y, rightCarColor);
