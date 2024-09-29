@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dos cotxes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
             display: flex;
@@ -13,7 +14,7 @@
             height: 100vh;
             margin: 0;
             background: linear-gradient(45deg, #1a237e, #311b92);
-            font-family: 'Arial', sans-serif;
+            font-family: 'Poppins', sans-serif;
             color: white;
         }
         #gameContainer {
@@ -21,8 +22,9 @@
             width: 400px;
         }
         #gameCanvas {
-            border-radius: 20px;
+            border-radius: 20px 20px 0 0;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            display: block; /* Afegit per eliminar espai extra */
         }
         #controlsPanel {
             width: 100%;
@@ -32,6 +34,7 @@
             display: flex;
             justify-content: space-around;
             align-items: center;
+            margin-top: -4px; /* Afegit per eliminar l'espai entre el canvas i els controls */
         }
         .controlKey {
             width: 50px;
@@ -54,7 +57,7 @@
 </head>
 <body>
     <div id="gameContainer">
-        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <canvas id="gameCanvas" width="400" height="650"></canvas>
         <div id="controlsPanel">
             <div class="controlKey">A</div>
             <div class="controlKey">D</div>
@@ -336,11 +339,24 @@
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
             ctx.lineWidth = 2;
             for (let i = 1; i < 4; i++) {
-                ctx.beginPath();
-                ctx.setLineDash([5, 15]);
-                ctx.moveTo(i * laneWidth, 0);
-                ctx.lineTo(i * laneWidth, canvas.height);
-                ctx.stroke();
+                if (i === 2) {
+                    // Línia central doble
+                    ctx.beginPath();
+                    ctx.moveTo(i * laneWidth - 2, 0);
+                    ctx.lineTo(i * laneWidth - 2, canvas.height);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(i * laneWidth + 2, 0);
+                    ctx.lineTo(i * laneWidth + 2, canvas.height);
+                    ctx.stroke();
+                } else {
+                    // Línies discontínues
+                    ctx.beginPath();
+                    ctx.setLineDash([30, 20]);
+                    ctx.moveTo(i * laneWidth, 0);
+                    ctx.lineTo(i * laneWidth, canvas.height);
+                    ctx.stroke();
+                }
             }
             ctx.setLineDash([]);
 
@@ -348,44 +364,54 @@
             drawCar(car2.x, car2.y, rightCarColor);
             obstacles.forEach(obstacle => drawObstacle(obstacle.x, obstacle.y, obstacle.isCircle, obstacle.color));
 
+            // Nova manera de mostrar la puntuació
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.beginPath();
+            ctx.roundRect(10, 10, 80, 40, 20);
+            ctx.fill();
+
             ctx.fillStyle = 'white';
-            ctx.font = 'bold 24px Arial';
-            ctx.fillText(`Puntuació: ${score}`, 10, 30);
+            ctx.font = 'bold 24px Poppins';
+            ctx.textAlign = 'center';
+            ctx.fillText(score.toString(), 50, 38);
 
             if (gameOver) {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 
                 ctx.fillStyle = 'white';
-                ctx.font = 'bold 48px Arial';
+                ctx.font = 'bold 36px Poppins';
+                ctx.textAlign = 'center';
                 
                 if (obstacles.some(obs => obs.isCircle && obs.y + obstacleSize > canvas.height)) {
-                    ctx.fillText("Se t'ha escapat!", canvas.width / 2 - 160, canvas.height / 2 - 50);
-                    ctx.font = 'bold 24px Arial';
-                    ctx.fillText("Has d'agafar tots els cercles", canvas.width / 2 - 140, canvas.height / 2 + 10);
+                    ctx.fillText("Se t'ha escapat!", canvas.width / 2, canvas.height / 2 - 50);
+                    ctx.font = 'bold 24px Poppins';
+                    ctx.fillText("agafa tots els cercles", canvas.width / 2, canvas.height / 2 + 10);
                 } else {
-                    ctx.fillText('Has xocat!', canvas.width / 2 - 120, canvas.height / 2 - 50);
-                    ctx.font = 'bold 24px Arial';
-                    ctx.fillText("Has d'evitar els quadrats", canvas.width / 2 - 130, canvas.height / 2 + 10);
+                    ctx.fillText('Has xocat!', canvas.width / 2, canvas.height / 2 - 50);
+                    ctx.font = 'bold 24px Poppins';
+                    ctx.fillText("evita els quadrats", canvas.width / 2, canvas.height / 2 + 10);
                 }
                 
-                ctx.font = 'bold 24px Arial';
-                ctx.fillText(`Puntuació final: ${score}`, canvas.width / 2 - 80, canvas.height / 2 + 50);
+                ctx.font = 'bold 24px Poppins';
+                ctx.fillText(`Puntuació final: ${score}`, canvas.width / 2, canvas.height / 2 + 50);
                 
-                // Dibuixar la tecla d'espai
+                // Dibuixar la tecla d'espai menys arrodonida
                 ctx.fillStyle = '#f0f0f0';
-                ctx.fillRect(canvas.width / 2 - 75, canvas.height / 2 + 80, 150, 40);
+                ctx.beginPath();
+                ctx.roundRect(canvas.width / 2 - 75, canvas.height / 2 + 80, 150, 40, 10);
+                ctx.fill();
                 ctx.strokeStyle = '#999';
                 ctx.lineWidth = 2;
-                ctx.strokeRect(canvas.width / 2 - 75, canvas.height / 2 + 80, 150, 40);
+                ctx.stroke();
                 
                 ctx.fillStyle = '#333';
-                ctx.font = 'bold 24px Arial';
-                ctx.fillText('ESPAI', canvas.width / 2 - 35, canvas.height / 2 + 108);
+                ctx.font = 'bold 24px Poppins';
+                ctx.fillText('ESPAI', canvas.width / 2, canvas.height / 2 + 108);
                 
                 ctx.fillStyle = 'white';
-                ctx.font = '20px Arial';
-                ctx.fillText('per tornar a jugar', canvas.width / 2 - 80, canvas.height / 2 + 140);
+                ctx.font = '20px Poppins';
+                ctx.fillText('per tornar-hi', canvas.width / 2, canvas.height / 2 + 140);
             }
         }
 
@@ -397,23 +423,26 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             ctx.fillStyle = 'white';
-            ctx.font = 'bold 36px Arial';
-            ctx.fillText('Two Cars', canvas.width / 2 - 80, canvas.height / 2 - 40);
+            ctx.font = 'bold 36px Poppins';
+            ctx.textAlign = 'center';
+            ctx.fillText('Dos cotxes', canvas.width / 2, canvas.height / 2 - 40);
             
-            // Dibuixar la tecla d'espai
+            // Dibuixar la tecla d'espai menys arrodonida
             ctx.fillStyle = '#f0f0f0';
-            ctx.fillRect(canvas.width / 2 - 75, canvas.height / 2 + 20, 150, 40);
+            ctx.beginPath();
+            ctx.roundRect(canvas.width / 2 - 75, canvas.height / 2 + 20, 150, 40, 10);
+            ctx.fill();
             ctx.strokeStyle = '#999';
             ctx.lineWidth = 2;
-            ctx.strokeRect(canvas.width / 2 - 75, canvas.height / 2 + 20, 150, 40);
+            ctx.stroke();
             
             ctx.fillStyle = '#333';
-            ctx.font = 'bold 24px Arial';
-            ctx.fillText('ESPAI', canvas.width / 2 - 35, canvas.height / 2 + 48);
+            ctx.font = 'bold 24px Poppins';
+            ctx.fillText('ESPAI', canvas.width / 2, canvas.height / 2 + 48);
             
             ctx.fillStyle = 'white';
-            ctx.font = '20px Arial';
-            ctx.fillText('per començar', canvas.width / 2 - 60, canvas.height / 2 + 80);
+            ctx.font = '20px Poppins';
+            ctx.fillText('per començar', canvas.width / 2, canvas.height / 2 + 90);
         }
 
         function resetGame() {
