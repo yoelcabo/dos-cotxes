@@ -380,23 +380,24 @@
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 
                 ctx.fillStyle = 'white';
-                ctx.font = 'bold 36px Poppins';
                 ctx.textAlign = 'center';
                 
+                // Puntuació gran a dalt
+                ctx.font = 'bold 80px Poppins';
+                ctx.fillText(score.toString(), canvas.width / 2, canvas.height / 2 - 120);
+                
+                ctx.font = 'bold 40px Poppins';
                 if (obstacles.some(obs => obs.isCircle && obs.y + obstacleSize > canvas.height)) {
-                    ctx.fillText("Se t'ha escapat!", canvas.width / 2, canvas.height / 2 - 50);
-                    ctx.font = 'bold 24px Poppins';
-                    ctx.fillText("agafa tots els cercles", canvas.width / 2, canvas.height / 2 + 10);
+                    ctx.fillText("Se t'ha escapat!", canvas.width / 2, canvas.height / 2 - 20);
+                    ctx.font = '24px Poppins';
+                    ctx.fillText("agafa tots els cercles", canvas.width / 2, canvas.height / 2 + 30);
                 } else {
-                    ctx.fillText('Has xocat!', canvas.width / 2, canvas.height / 2 - 50);
-                    ctx.font = 'bold 24px Poppins';
-                    ctx.fillText("evita els quadrats", canvas.width / 2, canvas.height / 2 + 10);
+                    ctx.fillText('Has xocat!', canvas.width / 2, canvas.height / 2 - 20);
+                    ctx.font = '24px Poppins';
+                    ctx.fillText("evita els quadrats", canvas.width / 2, canvas.height / 2 + 30);
                 }
                 
-                ctx.font = 'bold 24px Poppins';
-                ctx.fillText(`Puntuació final: ${score}`, canvas.width / 2, canvas.height / 2 + 50);
-                
-                // Dibuixar la tecla d'espai menys arrodonida
+                // Dibuixar la tecla d'espai al mig
                 ctx.fillStyle = '#f0f0f0';
                 ctx.beginPath();
                 ctx.roundRect(canvas.width / 2 - 75, canvas.height / 2 + 80, 150, 40, 10);
@@ -411,7 +412,7 @@
                 
                 ctx.fillStyle = 'white';
                 ctx.font = '20px Poppins';
-                ctx.fillText('per tornar-hi', canvas.width / 2, canvas.height / 2 + 140);
+                ctx.fillText('per tornar-hi', canvas.width / 2, canvas.height / 2 + 150);
             }
         }
 
