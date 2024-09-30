@@ -100,34 +100,26 @@
         let isNewHighScore = false; // Nova variable booleana
 
         function initializeGameVariables() {
+            const initialY = canvas.height - carHeight - bottomMargin;
+            const initializeCar = (x, lane, targetX) => ({ x, y: initialY, lane, targetX });
+
             carWidth = Math.min(50, laneWidth * 0.8);
             carHeight = carWidth * 1.6;
             obstacleSize = Math.min(40, laneWidth * 0.6);
 
-            const initialY = canvas.height - carHeight - bottomMargin;
-            car1 = { 
-                x: canvas.width / 4 - carWidth / 2, 
-                y: initialY, 
-                lane: 0, 
-                targetX: laneWidth / 2 - carWidth / 2 
-            };
-            car2 = { 
-                x: 3 * canvas.width / 4 - carWidth / 2, 
-                y: initialY, 
-                lane: 3, 
-                targetX: 3 * laneWidth + laneWidth / 2 - carWidth / 2 
-            };
+            car1 = initializeCar(canvas.width / 4 - carWidth / 2, 0, laneWidth / 2 - carWidth / 2);
+            car2 = initializeCar(3 * canvas.width / 4 - carWidth / 2, 3, 3 * laneWidth + laneWidth / 2 - carWidth / 2);
+            
             obstacles = [];
             score = 0;
             gameOver = false;
             gameStarted = false;
             speed = 300; // startSpeed
             lastObstacleTime = 0;
+            distanceSinceLastObstacle = 0;
             
-            // Carregar el rècord del localStorage
-            highScore = localStorage.getItem('highScore') || 0;
-            highScore = parseInt(highScore);
-            isNewHighScore = false; // Reiniciem la variable a cada nova partida
+            highScore = parseInt(localStorage.getItem('highScore') || '0');
+            isNewHighScore = false;
         }
 
         function resizeCanvas() {
@@ -334,15 +326,15 @@
         function createObstacle() {
             if (distanceSinceLastObstacle < baseObstacleDistance) return;
 
-            const leftPair = obstacles.filter(obs => obs.lane < 2);
-            const rightPair = obstacles.filter(obs => obs.lane >= 2);
+            const createForSide = (startLane) => {
+                const pair = obstacles.filter(obs => obs.lane >= startLane && obs.lane < startLane + 2);
+                if (pair.length < maxObstaclesPerPair && Math.random() < 0.5) {
+                    if (createObstacleForPair(startLane, startLane + 1)) distanceSinceLastObstacle = 0;
+                }
+            };
 
-            if (leftPair.length < maxObstaclesPerPair && Math.random() < 0.5) {
-                if (createObstacleForPair(0, 1)) distanceSinceLastObstacle = 0;
-            }
-            if (rightPair.length < maxObstaclesPerPair && Math.random() < 0.5) {
-                if (createObstacleForPair(2, 3)) distanceSinceLastObstacle = 0;
-            }
+            createForSide(0); // Left side
+            createForSide(2); // Right side
         }
 
         function createObstacleForPair(lane1, lane2) {
@@ -366,8 +358,8 @@
             obstacles.push({
                 x: lane * laneWidth + laneWidth / 2 - obstacleSize / 2,
                 y: -obstacleSize,
-                lane: lane,
-                isCircle: isCircle,
+                lane,
+                isCircle,
                 avoided: false,
                 color: obstacleColor
             });
@@ -376,45 +368,43 @@
         }
 
         function moveObstacles(deltaTime) {
-            const moveDistance = (speed * deltaTime) / 1000; // Convertim la velocitat a píxels per mil·lisegon
+            const moveDistance = (speed * deltaTime) / 1000;
             distanceSinceLastObstacle += moveDistance;
 
             obstacles.forEach(obstacle => {
                 obstacle.y += moveDistance;
                 
-                // Comprovar si l'obstacle ha estat evitat
                 if (!obstacle.isCircle && !obstacle.avoided && obstacle.y > canvas.height) {
                     score++;
                     obstacle.avoided = true;
                     lastAvoidedObstacle = obstacle;
                 }
-            });
-            
-            obstacles = obstacles.filter(obstacle => obstacle.y < canvas.height || obstacle === lastAvoidedObstacle);
-            
-            // Comprovar si s'ha escapat algun cercle
-            obstacles.forEach(obstacle => {
+
                 if (obstacle.isCircle && obstacle.y + obstacleSize > canvas.height) {
                     gameOver = true;
                 }
             });
             
-            // Eliminar l'últim obstacle evitat de la llista
+            obstacles = obstacles.filter(obstacle => obstacle.y < canvas.height || obstacle === lastAvoidedObstacle);
+            
             if (lastAvoidedObstacle && lastAvoidedObstacle.y > canvas.height + obstacleSize) {
                 obstacles = obstacles.filter(obs => obs !== lastAvoidedObstacle);
                 lastAvoidedObstacle = null;
             }
             
-            // Assegurar-se que hi ha prou obstacles
-            const leftPair = obstacles.filter(obs => obs.lane < 2);
-            const rightPair = obstacles.filter(obs => obs.lane >= 2);
+            ensureMinimumObstacles();
+        }
 
-            if (leftPair.length < minObstaclesPerPair) {
-                createObstacleForPair(0, 1);
-            }
-            if (rightPair.length < minObstaclesPerPair) {
-                createObstacleForPair(2, 3);
-            }
+        function ensureMinimumObstacles() {
+            const ensureForSide = (startLane) => {
+                const pair = obstacles.filter(obs => obs.lane >= startLane && obs.lane < startLane + 2);
+                if (pair.length < minObstaclesPerPair) {
+                    createObstacleForPair(startLane, startLane + 1);
+                }
+            };
+
+            ensureForSide(0); // Left side
+            ensureForSide(2); // Right side
         }
 
         function checkCollision() {
@@ -662,35 +652,35 @@
         function updateCarPositions(deltaTime) {
             const currentTime = performance.now();
             
+            const updateCarPosition = (car, transitionStart, transitionDuration) => {
+                const progress = Math.min((currentTime - transitionStart) / transitionDuration, 1);
+                car.x = car.x + (car.targetX - car.x) * progress;
+                return progress === 1;
+            };
+
             if (gameStartTransition) {
-                const progress = Math.min((currentTime - gameStartTransitionStart) / gameStartTransitionDuration, 1);
-                car1.x = car1.x + (car1.targetX - car1.x) * progress;
-                car2.x = car2.x + (car2.targetX - car2.x) * progress;
-                if (progress === 1) {
+                const car1Done = updateCarPosition(car1, gameStartTransitionStart, gameStartTransitionDuration);
+                const car2Done = updateCarPosition(car2, gameStartTransitionStart, gameStartTransitionDuration);
+                if (car1Done && car2Done) {
                     gameStartTransition = false;
                     car1.x = car1.targetX;
                     car2.x = car2.targetX;
                 }
             } else if (gameRestartTransition) {
-                const progress = Math.min((currentTime - gameRestartTransitionStart) / gameRestartTransitionDuration, 1);
-                car1.x = car1.x + (car1.targetX - car1.x) * progress;
-                car2.x = car2.x + (car2.targetX - car2.x) * progress;
-                if (progress === 1) {
+                const car1Done = updateCarPosition(car1, gameRestartTransitionStart, gameRestartTransitionDuration);
+                const car2Done = updateCarPosition(car2, gameRestartTransitionStart, gameRestartTransitionDuration);
+                if (car1Done && car2Done) {
                     gameRestartTransition = false;
                     car1.x = car1.targetX;
                     car2.x = car2.targetX;
                 }
             } else {
-                if (car1TransitionStart > 0) {
-                    const progress = Math.min((currentTime - car1TransitionStart) / carTransitionDuration, 1);
-                    car1.x = car1.x + (car1.targetX - car1.x) * progress;
-                    if (progress === 1) car1TransitionStart = 0;
+                if (car1TransitionStart > 0 && updateCarPosition(car1, car1TransitionStart, carTransitionDuration)) {
+                    car1TransitionStart = 0;
                 }
                 
-                if (car2TransitionStart > 0) {
-                    const progress = Math.min((currentTime - car2TransitionStart) / carTransitionDuration, 1);
-                    car2.x = car2.x + (car2.targetX - car2.x) * progress;
-                    if (progress === 1) car2TransitionStart = 0;
+                if (car2TransitionStart > 0 && updateCarPosition(car2, car2TransitionStart, carTransitionDuration)) {
+                    car2TransitionStart = 0;
                 }
             }
         }
