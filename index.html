@@ -107,10 +107,10 @@
                 right: '#FF4081'
             },
             obstacleColors: {
-                leftCircle: '#4DD0E1',
-                leftSquare: '#0097A7',
-                rightCircle: '#FF80AB',
-                rightSquare: '#C2185B'
+                leftCircle: '#00BCD4',  // Mateix color que el cotxe esquerre
+                leftSquare: '#0097A7',  // Color més fosc pel quadrat esquerre
+                rightCircle: '#FF4081', // Mateix color que el cotxe dret
+                rightSquare: '#C2185B'  // Color més fosc pel quadrat dret
             },
             transitionDurations: {
                 gameStart: 1000,
@@ -449,51 +449,56 @@
             ctx.shadowOffsetY = 5;
 
             if (isCircle) {
-                // Cercle modernitzat
-                ctx.fillStyle = color;
-                ctx.beginPath();
-                ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Detall interior
-                ctx.fillStyle = shadeColor(color, 20);
-                ctx.beginPath();
-                ctx.arc(0, 0, size / 3, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Brillantor reduïda
-                const gradient = ctx.createRadialGradient(-size/5, -size/5, 0, 0, 0, size/2);
-                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
-                gradient.addColorStop(0.6, 'rgba(255, 255, 255, 0)');
-                ctx.fillStyle = gradient;
-                ctx.beginPath();
-                ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
-                ctx.fill();
+                drawCircleObstacle(ctx, color, size);
             } else {
-                // Quadrat modernitzat
-                ctx.fillStyle = color;
-                ctx.beginPath();
-                ctx.roundRect(-size / 2, -size / 2, size, size, size / 5);
-                ctx.fill();
-
-                // Detall interior
-                ctx.fillStyle = shadeColor(color, -20);
-                ctx.beginPath();
-                ctx.roundRect(-size / 3, -size / 3, 2 * size / 3, 2 * size / 3, size / 10);
-                ctx.fill();
-
-                // Símbol d'advertència més petit i gruixut
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-                ctx.lineWidth = 4;
-                ctx.beginPath();
-                ctx.moveTo(-size / 6, -size / 6);
-                ctx.lineTo(size / 6, size / 6);
-                ctx.moveTo(size / 6, -size / 6);
-                ctx.lineTo(-size / 6, size / 6);
-                ctx.stroke();
+                drawSquareObstacle(ctx, color, size);
             }
             
             ctx.restore();
+        }
+
+        function drawCircleObstacle(ctx, color, size) {
+            // Cercle exterior (mateix color que el cotxe)
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Anell blanc
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Cercle interior (mateix color que el cotxe)
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Punt central
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 0.1, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawSquareObstacle(ctx, color, size) {
+            // Quadrat (color més fosc)
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.roundRect(-size / 2, -size / 2, size, size, size / 5);
+            ctx.fill();
+
+            // Símbol d'advertència
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(-size / 4, -size / 4);
+            ctx.lineTo(size / 4, size / 4);
+            ctx.moveTo(size / 4, -size / 4);
+            ctx.lineTo(-size / 4, size / 4);
+            ctx.stroke();
         }
 
         function drawGame(ctx) {
