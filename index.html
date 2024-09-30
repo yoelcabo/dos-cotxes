@@ -417,7 +417,7 @@
                     ctx.fillText("evita els quadrats", canvas.width / 2, canvas.height / 2 + 30);
                 }
                 
-                // Dibuixar la tecla d'espai al mig
+                // Dibuixar el botó de reinici
                 ctx.fillStyle = '#f0f0f0';
                 ctx.beginPath();
                 ctx.roundRect(canvas.width / 2 - 75, canvas.height / 2 + 80, 150, 40, 10);
@@ -428,7 +428,7 @@
                 
                 ctx.fillStyle = '#333';
                 ctx.font = 'bold 24px Poppins';
-                ctx.fillText('ESPAI', canvas.width / 2, canvas.height / 2 + 108);
+                ctx.fillText(isMobile() ? 'TOCA' : 'ESPAI', canvas.width / 2, canvas.height / 2 + 108);
                 
                 ctx.fillStyle = 'white';
                 ctx.font = '20px Poppins';
@@ -453,7 +453,7 @@
             drawCar(canvas.width / 4 - carWidth / 2, carY, leftCarColor);
             drawCar(3 * canvas.width / 4 - carWidth / 2, carY, rightCarColor);
             
-            // Dibuixar la tecla d'espai
+            // Dibuixar el botó d'inici
             ctx.fillStyle = '#f0f0f0';
             ctx.beginPath();
             ctx.roundRect(canvas.width / 2 - 75, canvas.height / 2 + 20, 150, 40, 10);
@@ -464,12 +464,11 @@
             
             ctx.fillStyle = '#333';
             ctx.font = 'bold 24px Poppins';
-            ctx.fillText('ESPAI', canvas.width / 2, canvas.height / 2 + 48);
+            ctx.fillText(isMobile() ? 'TOCA' : 'ESPAI', canvas.width / 2, canvas.height / 2 + 48);
             
             ctx.fillStyle = 'white';
             ctx.font = '20px Poppins';
-            ctx.fillText('Toca la pantalla per començar', canvas.width / 2, canvas.height / 2 + 130);
-            ctx.fillText('i moure els cotxes', canvas.width / 2, canvas.height / 2 + 160);
+            ctx.fillText('per començar', canvas.width / 2, canvas.height / 2 + 90);
         }
 
         function resetGame() {
@@ -690,6 +689,36 @@
                     break;
             }
         }
+
+        // Modifica la funció isMobile per utilitzar l'amplada de la pantalla
+        function isMobile() {
+            return window.innerWidth <= 768; // Considerem mòbil si l'amplada és 768px o menys
+        }
+
+        // Afegeix un event listener per resize per actualitzar la interfície quan canvia la mida de la finestra
+        window.addEventListener('resize', function() {
+            // Actualitza els controls i la interfície si cal
+            if (gameStarted && !gameOver) {
+                drawGame();
+            } else if (!gameStarted) {
+                drawStartScreen();
+            }
+        });
+
+        function updateControlsDisplay() {
+            const isMobileDevice = isMobile();
+            const controls = document.querySelectorAll('.controlKey');
+            controls[0].textContent = isMobileDevice ? '←' : 'A';
+            controls[1].textContent = isMobileDevice ? '→' : 'D';
+            // Les altres dues fletxes ja són correctes per a ambdós casos
+        }
+
+        // Executa updateControlsDisplay immediatament després de definir-la
+        updateControlsDisplay();
+
+        // Mantenim els event listeners per si canvia la mida de la finestra
+        window.addEventListener('load', updateControlsDisplay);
+        window.addEventListener('resize', updateControlsDisplay);
 
         // Modifica la part final del codi per incloure l'event listener de les tecles
         // Iniciar el joc
