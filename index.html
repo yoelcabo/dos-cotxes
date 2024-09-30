@@ -69,7 +69,7 @@
             }
             #gameCanvas {
                 border-radius: 0;
-                height: 100%; /* Ocupar tota l'alçada en m��bil */
+                height: 100%; /* Ocupar tota l'alçada en mbil */
             }
             #controlsPanel {
                 display: none; /* Amagar els controls en mòbil */
@@ -420,7 +420,7 @@
                         // Actualitzar el rècord si cal
                         if (score > highScore) {
                             highScore = score;
-                            localStorage.setItem('highScore', highScore);
+                            localStorage.setItem('highScore', highScore.toString());
                             isNewHighScore = true; // Marquem que hem fet un nou rècord
                         }
                         // Eliminar l'obstacle recollit
@@ -488,8 +488,8 @@
             ctx.textAlign = 'center';
             ctx.fillText(score.toString(), 50, 38);
 
-            // Mostrar el rècord només si no s'ha superat en aquesta partida i no és 0
-            if (!isNewHighScore && highScore > 0) {
+            // Mostrar el rècord només si és 10 o més i no s'ha superat en aquesta partida
+            if (highScore >= 10 && !isNewHighScore) {
                 ctx.fillStyle = 'rgba(255, 215, 0, 0.1)';
                 ctx.beginPath();
                 ctx.roundRect(canvas.width - 90, 10, 80, 40, 20);
@@ -510,44 +510,41 @@
                 
                 ctx.textAlign = 'center';
                 
-                // Indicador de nou rècord
-                if (isNewHighScore) {
-                    ctx.font = 'bold 24px Poppins';
-                    const gradient = ctx.createLinearGradient(
-                        canvas.width / 2 - 60, canvas.height / 2 - 200,
-                        canvas.width / 2 + 60, canvas.height / 2 - 160
-                    );
-                    gradient.addColorStop(0, 'rgba(255, 223, 0, 0.9)');
-                    gradient.addColorStop(1, 'rgba(255, 223, 0, 0.7)');
-                    ctx.fillStyle = gradient;
-                    ctx.fillText('NOU RÈCORD!', canvas.width / 2, canvas.height / 2 - 180);
-                }
-                
-                // Puntuació gran a dalt
-                ctx.font = 'bold 80px Poppins';
-                if (isNewHighScore) {
-                    const gradient = ctx.createLinearGradient(
-                        canvas.width / 2 - 100, canvas.height / 2 - 140,
-                        canvas.width / 2 + 100, canvas.height / 2 - 60
-                    );
-                    gradient.addColorStop(0, 'rgba(255, 223, 0, 0.9)');
-                    gradient.addColorStop(1, 'rgba(255, 223, 0, 0.7)');
-                    ctx.fillStyle = gradient;
-                } else {
+                if (score < 10) {
+                    // Versió de la pantalla final per a puntuacions menors de 10
                     ctx.fillStyle = 'white';
-                }
-                ctx.fillText(score.toString(), canvas.width / 2, canvas.height / 2 - 100);
-                
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 40px Poppins';
-                if (obstacles.some(obs => obs.isCircle && obs.y + obstacleSize > canvas.height)) {
-                    ctx.fillText("Se t'ha escapat!", canvas.width / 2, canvas.height / 2 - 20);
-                    ctx.font = '24px Poppins';
-                    ctx.fillText("agafa tots els cercles", canvas.width / 2, canvas.height / 2 + 30);
+                    ctx.font = 'bold 80px Poppins';
+                    ctx.fillText(score.toString(), canvas.width / 2, canvas.height / 2 - 100);
+                    
+                    ctx.font = 'bold 40px Poppins';
+                    if (obstacles.some(obs => obs.isCircle && obs.y + obstacleSize > canvas.height)) {
+                        ctx.fillText("Se t'ha escapat!", canvas.width / 2, canvas.height / 2 - 20);
+                        ctx.font = '24px Poppins';
+                        ctx.fillText("agafa tots els cercles", canvas.width / 2, canvas.height / 2 + 30);
+                    } else {
+                        ctx.fillText('Has xocat!', canvas.width / 2, canvas.height / 2 - 20);
+                        ctx.font = '24px Poppins';
+                        ctx.fillText("evita els quadrats", canvas.width / 2, canvas.height / 2 + 30);
+                    }
                 } else {
-                    ctx.fillText('Has xocat!', canvas.width / 2, canvas.height / 2 - 20);
-                    ctx.font = '24px Poppins';
-                    ctx.fillText("evita els quadrats", canvas.width / 2, canvas.height / 2 + 30);
+                    // Versió de la pantalla final per a puntuacions de 10 o més
+                    ctx.font = 'bold 80px Poppins';
+                    if (isNewHighScore) {
+                        const gradient = ctx.createLinearGradient(
+                            canvas.width / 2 - 100, canvas.height / 2 - 40,
+                            canvas.width / 2 + 100, canvas.height / 2 + 40
+                        );
+                        gradient.addColorStop(0, 'rgba(255, 223, 0, 0.9)');
+                        gradient.addColorStop(1, 'rgba(255, 223, 0, 0.7)');
+                        ctx.fillStyle = gradient;
+                        ctx.fillText(score.toString(), canvas.width / 2, canvas.height / 2);
+                        
+                        ctx.font = 'bold 24px Poppins';
+                        ctx.fillText('NOU RÈCORD!', canvas.width / 2, canvas.height / 2 - 80);
+                    } else {
+                        ctx.fillStyle = 'white';
+                        ctx.fillText(score.toString(), canvas.width / 2, canvas.height / 2);
+                    }
                 }
                 
                 // Dibuixar el botó de reinici
