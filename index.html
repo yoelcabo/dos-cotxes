@@ -104,8 +104,19 @@
             carHeight = carWidth * 1.6;
             obstacleSize = Math.min(40, laneWidth * 0.6);
 
-            car1 = { x: laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 0, targetX: laneWidth / 2 - carWidth / 2 };
-            car2 = { x: 3 * laneWidth + laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 3, targetX: 3 * laneWidth + laneWidth / 2 - carWidth / 2 };
+            const initialY = canvas.height - carHeight - bottomMargin;
+            car1 = { 
+                x: canvas.width / 4 - carWidth / 2, 
+                y: initialY, 
+                lane: 0, 
+                targetX: laneWidth / 2 - carWidth / 2 
+            };
+            car2 = { 
+                x: 3 * canvas.width / 4 - carWidth / 2, 
+                y: initialY, 
+                lane: 3, 
+                targetX: 3 * laneWidth + laneWidth / 2 - carWidth / 2 
+            };
             obstacles = [];
             score = 0;
             gameOver = false;
@@ -602,7 +613,11 @@
         }
 
         function resetGame() {
+            const oldCar1X = car1.x;
+            const oldCar2X = car2.x;
             initializeGameVariables();
+            car1.x = oldCar1X;
+            car2.x = oldCar2X;
             gameStarted = true;
             gameStartTransition = true;
             gameStartTransitionStart = performance.now();
