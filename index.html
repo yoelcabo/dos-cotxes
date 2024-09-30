@@ -16,42 +16,70 @@
             background: linear-gradient(45deg, #1a237e, #311b92);
             font-family: 'Poppins', sans-serif;
             color: white;
+            overflow: hidden;
         }
         #gameContainer {
             position: relative;
-            width: 400px;
+            width: 100%;
+            height: 100%;
+            max-width: 400px;
+            max-height: 90vh; /* Augmentat per a més alçada en desktop */
+            display: flex;
+            flex-direction: column;
         }
         #gameCanvas {
+            width: 100%;
+            height: calc(100% - 60px); /* Reduït l'espai dels controls en desktop */
             border-radius: 20px 20px 0 0;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            display: block; /* Afegit per eliminar espai extra */
+            display: block;
         }
         #controlsPanel {
             width: 100%;
-            padding: 15px 0;
+            height: 60px; /* Reduït l'alçada dels controls en desktop */
+            padding: 10px 0;
             background-color: rgba(255, 255, 255, 0.1);
             border-radius: 0 0 20px 20px;
             display: flex;
             justify-content: space-around;
             align-items: center;
-            margin-top: -4px; /* Afegit per eliminar l'espai entre el canvas i els controls */
+            margin-top: -4px;
         }
         .controlKey {
-            width: 50px;
-            height: 50px;
+            width: 40px; /* Reduït la mida dels controls en desktop */
+            height: 40px;
             background-color: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
+            border-radius: 8px;
             display: flex;
             justify-content: center;
             align-items: center;
             font-weight: bold;
-            font-size: 20px;
+            font-size: 18px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             transition: all 0.3s ease;
         }
         .controlKey:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 8px rgba(0,0,0,0.2);
+        }
+        @media (max-aspect-ratio: 9/16) {
+            #gameContainer {
+                max-width: 100%;
+                max-height: none;
+            }
+            #gameCanvas {
+                border-radius: 0;
+                height: calc(100% - 100px);
+            }
+            #controlsPanel {
+                height: 100px;
+                border-radius: 0;
+            }
+            .controlKey {
+                width: 70px;
+                height: 70px;
+                font-size: 24px;
+            }
         }
     </style>
 </head>
@@ -69,19 +97,71 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        const carWidth = 50;
-        const carHeight = 80;
-        const obstacleSize = 40; // Augmentat la mida dels obstacles
-        const laneWidth = canvas.width / 4;
+        let carWidth, carHeight, obstacleSize, laneWidth;
+        let bottomMargin = 20;
 
-        const bottomMargin = 20; // Reduït de 30 a 20
+        let car1, car2, obstacles, score, gameOver, gameStarted, speed, lastObstacleTime;
 
-        let car1 = { x: laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 0, targetX: laneWidth / 2 - carWidth / 2 };
-        let car2 = { x: 3 * laneWidth + laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 3, targetX: 3 * laneWidth + laneWidth / 2 - carWidth / 2 };
-        let obstacles = [];
-        let score = 0;
-        let gameOver = false;
-        let gameStarted = false;
+        function initializeGameVariables() {
+            carWidth = Math.min(50, laneWidth * 0.8);
+            carHeight = carWidth * 1.6;
+            obstacleSize = Math.min(40, laneWidth * 0.6);
+
+            car1 = { x: laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 0, targetX: laneWidth / 2 - carWidth / 2 };
+            car2 = { x: 3 * laneWidth + laneWidth / 2 - carWidth / 2, y: canvas.height - carHeight - bottomMargin, lane: 3, targetX: 3 * laneWidth + laneWidth / 2 - carWidth / 2 };
+            obstacles = [];
+            score = 0;
+            gameOver = false;
+            gameStarted = false;
+            speed = 300; // startSpeed
+            lastObstacleTime = 0;
+        }
+
+        function resizeCanvas() {
+            const container = document.getElementById('gameContainer');
+            const controlsPanel = document.getElementById('controlsPanel');
+            
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+            const controlsPanelHeight = controlsPanel.clientHeight;
+            
+            canvas.width = containerWidth;
+            canvas.height = containerHeight - controlsPanelHeight;
+            
+            const oldLaneWidth = laneWidth;
+            laneWidth = canvas.width / 4;
+            
+            // Ajustar les posicions dels cotxes i obstacles en lloc de reinicialitzar-los
+            if (car1 && car2) {
+                const scaleFactor = laneWidth / oldLaneWidth;
+                
+                car1.x *= scaleFactor;
+                car1.targetX *= scaleFactor;
+                car2.x *= scaleFactor;
+                car2.targetX *= scaleFactor;
+                
+                carWidth = Math.min(50, laneWidth * 0.8);
+                carHeight = carWidth * 1.6;
+                
+                car1.y = canvas.height - carHeight - bottomMargin;
+                car2.y = canvas.height - carHeight - bottomMargin;
+                
+                obstacles.forEach(obstacle => {
+                    obstacle.x *= scaleFactor;
+                    obstacle.y *= canvas.height / (containerHeight - controlsPanelHeight);
+                });
+                
+                obstacleSize = Math.min(40, laneWidth * 0.6);
+            } else {
+                initializeGameVariables();
+            }
+            
+            if (gameStarted && !gameOver) {
+                drawGame();
+            } else if (!gameStarted) {
+                drawStartScreen();
+            }
+        }
 
         const minObstacleDistance = 150;
         const maxObstaclesPerPair = 3;
@@ -89,10 +169,13 @@
         const startSpeed = 300;
         const maxSpeed = 1000;
         const acceleration = 10;
-        let speed = startSpeed;
+        let gameStartTransition = false;
+        let gameStartTransitionStart = 0;
+        const gameStartTransitionDuration = 1000; // ms per a la transició inicial
 
-        let lastObstacleTime = 0;
-        const obstacleInterval = 1000; // Interval mínim entre la creació d'obstacles (en mil·lisegons)
+        let gameRestartTransition = false;
+        let gameRestartTransitionStart = 0;
+        const gameRestartTransitionDuration = 400; // ms per a la transició de reinici
 
         let lastAvoidedObstacle = null;
 
@@ -111,13 +194,7 @@
         let car1TransitionStart = 0;
         let car2TransitionStart = 0;
 
-        let gameStartTransition = false;
-        let gameStartTransitionStart = 0;
-        const gameStartTransitionDuration = 1000; // ms per a la transició inicial
-
-        let gameRestartTransition = false;
-        let gameRestartTransitionStart = 0;
-        const gameRestartTransitionDuration = 400; // ms per a la transició de reinici
+        const obstacleInterval = 1000; // Interval mínim entre la creació d'obstacles (en mil·lisegons)
 
         function drawCar(x, y, color) {
             ctx.save();
@@ -360,15 +437,14 @@
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; // Mateix color per a totes les línies
             for (let i = 1; i < 4; i++) {
                 if (i === 2) {
-                    // Línia central doble contínua
+                    // Línia central més discreta
                     ctx.beginPath();
-                    ctx.moveTo(i * laneWidth - 2, 0);
-                    ctx.lineTo(i * laneWidth - 2, canvas.height);
+                    ctx.setLineDash([20, 20]); // Línia discontínua
+                    ctx.moveTo(i * laneWidth, 0);
+                    ctx.lineTo(i * laneWidth, canvas.height);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; // Més transparent
                     ctx.stroke();
-                    ctx.beginPath();
-                    ctx.moveTo(i * laneWidth + 2, 0);
-                    ctx.lineTo(i * laneWidth + 2, canvas.height);
-                    ctx.stroke();
+                    ctx.setLineDash([]); // Restablir el patró de línia
                 } else {
                     // Línies discontínues
                     ctx.beginPath();
@@ -472,54 +548,10 @@
         }
 
         function resetGame() {
-            const startY = canvas.height - carHeight - bottomMargin;
-            const startX1 = laneWidth / 2 - carWidth / 2;
-            const startX2 = 3 * laneWidth + laneWidth / 2 - carWidth / 2;
-
-            if (!gameStarted) {
-                // Primera vegada que comença el joc
-                car1 = { 
-                    x: canvas.width / 4 - carWidth / 2,
-                    y: startY, 
-                    lane: 0, 
-                    targetX: startX1,
-                    targetY: startY
-                };
-                car2 = { 
-                    x: 3 * canvas.width / 4 - carWidth / 2,
-                    y: startY, 
-                    lane: 3, 
-                    targetX: startX2,
-                    targetY: startY
-                };
-                gameStartTransition = true;
-                gameStartTransitionStart = performance.now();
-            } else {
-                // Reinici del joc
-                car1 = { 
-                    x: car1.x, 
-                    y: startY, 
-                    lane: 0, 
-                    targetX: startX1,
-                    targetY: startY
-                };
-                car2 = { 
-                    x: car2.x, 
-                    y: startY, 
-                    lane: 3, 
-                    targetX: startX2,
-                    targetY: startY
-                };
-                gameRestartTransition = true;
-                gameRestartTransitionStart = performance.now();
-            }
-
-            obstacles = [];
-            score = 0;
-            gameOver = false;
+            initializeGameVariables();
             gameStarted = true;
-            speed = startSpeed;
-            lastObstacleTime = 0;
+            gameStartTransition = true;
+            gameStartTransitionStart = performance.now();
         }
 
         function gameLoop(currentTime) {
@@ -591,12 +623,7 @@
         }
 
         function handleClick(event) {
-            if (!gameStarted) {
-                resetGame();
-                return;
-            }
-
-            if (gameOver) {
+            if (!gameStarted || gameOver) {
                 resetGame();
                 return;
             }
@@ -645,7 +672,6 @@
             }
         }
 
-        // Afegeix aquesta funció després de la funció handleClick
         function handleKeyDown(event) {
             if (event.code === 'Space') {
                 if (!gameStarted || gameOver) {
@@ -660,6 +686,7 @@
 
             switch(event.key) {
                 case 'a':
+                case 'A':
                     if (car1.lane > 0) {
                         car1.lane--;
                         car1.targetX = car1.lane * laneWidth + laneWidth / 2 - carWidth / 2;
@@ -667,6 +694,7 @@
                     }
                     break;
                 case 'd':
+                case 'D':
                     if (car1.lane < 1) {
                         car1.lane++;
                         car1.targetX = car1.lane * laneWidth + laneWidth / 2 - carWidth / 2;
@@ -690,9 +718,9 @@
             }
         }
 
-        // Modifica la funció isMobile per utilitzar l'amplada de la pantalla
         function isMobile() {
-            return window.innerWidth <= 768; // Considerem mòbil si l'amplada és 768px o menys
+            const aspectRatio = window.innerWidth / window.innerHeight;
+            return aspectRatio <= 9/16;
         }
 
         // Afegeix un event listener per resize per actualitzar la interfície quan canvia la mida de la finestra
@@ -720,8 +748,13 @@
         window.addEventListener('load', updateControlsDisplay);
         window.addEventListener('resize', updateControlsDisplay);
 
-        // Modifica la part final del codi per incloure l'event listener de les tecles
-        // Iniciar el joc
+        // Inicialitzar el joc
+        window.addEventListener('load', function() {
+            resizeCanvas();
+            updateControlsDisplay();
+            requestAnimationFrame(gameLoop);
+        });
+        window.addEventListener('resize', resizeCanvas);
         document.getElementById('gameContainer').addEventListener('click', handleClick);
         document.getElementById('gameContainer').addEventListener('touchstart', function(event) {
             event.preventDefault();
@@ -729,7 +762,6 @@
             handleClick(touch);
         });
         document.addEventListener('keydown', handleKeyDown);
-        requestAnimationFrame(gameLoop);
     </script>
 </body>
 </html>
