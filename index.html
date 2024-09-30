@@ -69,7 +69,7 @@
             }
             #gameCanvas {
                 border-radius: 0;
-                height: 100%; /* Ocupar tota l'alçada en mòbil */
+                height: 100%; /* Ocupar tota l'alçada en m��bil */
             }
             #controlsPanel {
                 display: none; /* Amagar els controls en mòbil */
@@ -96,6 +96,9 @@
 
         let car1, car2, obstacles, score, gameOver, gameStarted, speed, lastObstacleTime;
 
+        let highScore = 0;
+        let isNewHighScore = false; // Nova variable booleana
+
         function initializeGameVariables() {
             carWidth = Math.min(50, laneWidth * 0.8);
             carHeight = carWidth * 1.6;
@@ -109,6 +112,11 @@
             gameStarted = false;
             speed = 300; // startSpeed
             lastObstacleTime = 0;
+            
+            // Carregar el rècord del localStorage
+            highScore = localStorage.getItem('highScore') || 0;
+            highScore = parseInt(highScore);
+            isNewHighScore = false; // Reiniciem la variable a cada nova partida
         }
 
         function resizeCanvas() {
@@ -409,6 +417,12 @@
                 ) {
                     if (obstacle.isCircle) {
                         score++;
+                        // Actualitzar el rècord si cal
+                        if (score > highScore) {
+                            highScore = score;
+                            localStorage.setItem('highScore', highScore);
+                            isNewHighScore = true; // Marquem que hem fet un nou rècord
+                        }
                         // Eliminar l'obstacle recollit
                         obstacles = obstacles.filter(obs => obs !== obstacle);
                     } else {
@@ -431,14 +445,15 @@
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; // Mateix color per a totes les línies
             for (let i = 1; i < 4; i++) {
                 if (i === 2) {
-                    // Línia central més discreta
+                    // Línia central doble contínua
                     ctx.beginPath();
-                    ctx.setLineDash([20, 20]); // Línia discontínua
-                    ctx.moveTo(i * laneWidth, 0);
-                    ctx.lineTo(i * laneWidth, canvas.height);
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; // Més transparent
+                    ctx.moveTo(i * laneWidth - 2, 0);
+                    ctx.lineTo(i * laneWidth - 2, canvas.height);
                     ctx.stroke();
-                    ctx.setLineDash([]); // Restablir el patró de línia
+                    ctx.beginPath();
+                    ctx.moveTo(i * laneWidth + 2, 0);
+                    ctx.lineTo(i * laneWidth + 2, canvas.height);
+                    ctx.stroke();
                 } else {
                     // Línies discontínues
                     ctx.beginPath();
@@ -454,28 +469,76 @@
             drawCar(car2.x, car2.y, rightCarColor);
             obstacles.forEach(obstacle => drawObstacle(obstacle.x, obstacle.y, obstacle.isCircle, obstacle.color));
 
-            // Nova manera de mostrar la puntuació
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            // Mostrar la puntuació actual
+            const scoreColor = isNewHighScore ? 'rgba(255, 215, 0, 0.2)' : 'rgba(255, 255, 255, 0.1)';
+            ctx.fillStyle = scoreColor;
             ctx.beginPath();
             ctx.roundRect(10, 10, 80, 40, 20);
             ctx.fill();
 
-            ctx.fillStyle = 'white';
+            if (isNewHighScore) {
+                const gradient = ctx.createLinearGradient(10, 10, 90, 50);
+                gradient.addColorStop(0, 'rgba(255, 223, 0, 0.9)');
+                gradient.addColorStop(1, 'rgba(255, 223, 0, 0.7)');
+                ctx.fillStyle = gradient;
+            } else {
+                ctx.fillStyle = 'white';
+            }
             ctx.font = 'bold 24px Poppins';
             ctx.textAlign = 'center';
             ctx.fillText(score.toString(), 50, 38);
+
+            // Mostrar el rècord només si no s'ha superat en aquesta partida i no és 0
+            if (!isNewHighScore && highScore > 0) {
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.1)';
+                ctx.beginPath();
+                ctx.roundRect(canvas.width - 90, 10, 80, 40, 20);
+                ctx.fill();
+
+                const recordGradient = ctx.createLinearGradient(canvas.width - 90, 10, canvas.width - 10, 50);
+                recordGradient.addColorStop(0, 'rgba(255, 223, 0, 0.9)');
+                recordGradient.addColorStop(1, 'rgba(255, 223, 0, 0.7)');
+                ctx.fillStyle = recordGradient;
+                ctx.font = 'bold 24px Poppins';
+                ctx.textAlign = 'center';
+                ctx.fillText(highScore.toString(), canvas.width - 50, 38);
+            }
 
             if (gameOver) {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 
-                ctx.fillStyle = 'white';
                 ctx.textAlign = 'center';
+                
+                // Indicador de nou rècord
+                if (isNewHighScore) {
+                    ctx.font = 'bold 24px Poppins';
+                    const gradient = ctx.createLinearGradient(
+                        canvas.width / 2 - 60, canvas.height / 2 - 200,
+                        canvas.width / 2 + 60, canvas.height / 2 - 160
+                    );
+                    gradient.addColorStop(0, 'rgba(255, 223, 0, 0.9)');
+                    gradient.addColorStop(1, 'rgba(255, 223, 0, 0.7)');
+                    ctx.fillStyle = gradient;
+                    ctx.fillText('NOU RÈCORD!', canvas.width / 2, canvas.height / 2 - 180);
+                }
                 
                 // Puntuació gran a dalt
                 ctx.font = 'bold 80px Poppins';
-                ctx.fillText(score.toString(), canvas.width / 2, canvas.height / 2 - 120);
+                if (isNewHighScore) {
+                    const gradient = ctx.createLinearGradient(
+                        canvas.width / 2 - 100, canvas.height / 2 - 140,
+                        canvas.width / 2 + 100, canvas.height / 2 - 60
+                    );
+                    gradient.addColorStop(0, 'rgba(255, 223, 0, 0.9)');
+                    gradient.addColorStop(1, 'rgba(255, 223, 0, 0.7)');
+                    ctx.fillStyle = gradient;
+                } else {
+                    ctx.fillStyle = 'white';
+                }
+                ctx.fillText(score.toString(), canvas.width / 2, canvas.height / 2 - 100);
                 
+                ctx.fillStyle = 'white';
                 ctx.font = 'bold 40px Poppins';
                 if (obstacles.some(obs => obs.isCircle && obs.y + obstacleSize > canvas.height)) {
                     ctx.fillText("Se t'ha escapat!", canvas.width / 2, canvas.height / 2 - 20);
