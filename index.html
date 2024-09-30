@@ -341,14 +341,13 @@
             }
         };
 
-        // Classes
         class Car {
             constructor(lane, color, initialX) {
                 this.lane = lane;
                 this.color = color;
                 this.x = initialX;
                 this.updateDimensions();
-                this.targetX = this.x; // Inicialitzem targetX amb la posició actual
+                this.targetX = this.x; 
             }
 
             updateDimensions() {
@@ -398,7 +397,6 @@
             }
         }
 
-        // Funcions de dibuix
         function drawCar(ctx, x, y, color, width, height) {
             ctx.save();
             ctx.translate(x, y);
@@ -499,16 +497,29 @@
         }
 
         function drawGame(ctx) {
-            // Fons del joc
+            drawGameBackground(ctx);
+            drawLanes(ctx);
+            GameState.car1.draw(ctx);
+            GameState.car2.draw(ctx);
+            GameState.obstacles.forEach(obstacle => obstacle.draw(ctx));
+            drawScore(ctx);
+
+            if (GameState.gameOver) {
+                drawGameOver(ctx);
+            }
+        }
+
+        function drawGameBackground(ctx) {
             const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
             gradient.addColorStop(0, '#1A237E');
             gradient.addColorStop(1, '#311B92');
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
 
-            // Línies de carril
+        function drawLanes(ctx) {
             ctx.lineWidth = 2;
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; // Mateix color per a totes les línies
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
             for (let i = 1; i < 4; i++) {
                 if (i === 2) {
                     // Línia central doble contínua
@@ -523,19 +534,16 @@
                 } else {
                     // Línies discontínues
                     ctx.beginPath();
-                    ctx.setLineDash([20, 60]); // Segment de 20px, espai de 60px (3 vegades més llarg)
+                    ctx.setLineDash([20, 60]);
                     ctx.moveTo(i * GameState.laneWidth, 0);
                     ctx.lineTo(i * GameState.laneWidth, canvas.height);
                     ctx.stroke();
-                    ctx.setLineDash([]); // Restablir el patró de línia després de cada línia discontínua
+                    ctx.setLineDash([]);
                 }
             }
+        }
 
-            GameState.car1.draw(ctx);
-            GameState.car2.draw(ctx);
-            GameState.obstacles.forEach(obstacle => obstacle.draw(ctx));
-
-            // Mostrar la puntuació actual
+        function drawScore(ctx) {
             const scoreColor = GameState.isNewHighScore ? 'rgba(255, 215, 0, 0.2)' : 'rgba(255, 255, 255, 0.1)';
             ctx.fillStyle = scoreColor;
             ctx.beginPath();
@@ -554,7 +562,6 @@
             ctx.textAlign = 'center';
             ctx.fillText(GameState.score.toString(), 50, 38);
 
-            // Mostrar el rècord només si és 10 o més i no s'ha superat en aquesta partida
             if (GameState.highScore >= 10 && !GameState.isNewHighScore) {
                 ctx.fillStyle = 'rgba(255, 215, 0, 0.1)';
                 ctx.beginPath();
@@ -569,67 +576,76 @@
                 ctx.textAlign = 'center';
                 ctx.fillText(GameState.highScore.toString(), canvas.width - 50, 38);
             }
+        }
 
-            if (GameState.gameOver) {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                ctx.textAlign = 'center';
-                
-                if (GameState.score < 10) {
-                    // Versió de la pantalla final per a puntuacions menors de 10
-                    ctx.fillStyle = 'white';
-                    ctx.font = 'bold 80px Poppins';
-                    ctx.fillText(GameState.score.toString(), canvas.width / 2, canvas.height / 2 - 100);
-                    
-                    ctx.font = 'bold 40px Poppins';
-                    if (GameState.obstacles.some(obs => obs.isCircle && obs.y + obs.size > canvas.height)) {
-                        ctx.fillText("Se t'ha escapat!", canvas.width / 2, canvas.height / 2 - 20);
-                        ctx.font = '24px Poppins';
-                        ctx.fillText("agafa tots els cercles", canvas.width / 2, canvas.height / 2 + 30);
-                    } else {
-                        ctx.fillText('Has xocat!', canvas.width / 2, canvas.height / 2 - 20);
-                        ctx.font = '24px Poppins';
-                        ctx.fillText("evita els quadrats", canvas.width / 2, canvas.height / 2 + 30);
-                    }
-                } else {
-                    // Versió de la pantalla final per a puntuacions de 10 o més
-                    ctx.font = 'bold 80px Poppins';
-                    if (GameState.isNewHighScore) {
-                        const gradient = ctx.createLinearGradient(
-                            canvas.width / 2 - 100, canvas.height / 2 - 40,
-                            canvas.width / 2 + 100, canvas.height / 2 + 40
-                        );
-                        gradient.addColorStop(0, 'rgba(255, 223, 0, 0.9)');
-                        gradient.addColorStop(1, 'rgba(255, 223, 0, 0.7)');
-                        ctx.fillStyle = gradient;
-                        ctx.fillText(GameState.score.toString(), canvas.width / 2, canvas.height / 2);
-                        
-                        ctx.font = 'bold 24px Poppins';
-                        ctx.fillText('NOU RÈCORD!', canvas.width / 2, canvas.height / 2 - 80);
-                    } else {
-                        ctx.fillStyle = 'white';
-                        ctx.fillText(GameState.score.toString(), canvas.width / 2, canvas.height / 2);
-                    }
-                }
-                
-                // Dibuixar el botó de reinici
-                ctx.fillStyle = '#f0f0f0';
-                ctx.beginPath();
-                ctx.roundRect(canvas.width / 2 - 75, canvas.height / 2 + 80, 150, 40, 10);
-                ctx.fill();
-                ctx.strokeStyle = '#999';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                ctx.fillStyle = '#333';
-                ctx.font = 'bold 24px Poppins';
-                ctx.fillText(isMobile() ? 'TOCA' : 'ESPAI', canvas.width / 2, canvas.height / 2 + 108);
-                
-                ctx.fillStyle = 'white';
-                ctx.font = '20px Poppins';
-                ctx.fillText('per tornar-hi', canvas.width / 2, canvas.height / 2 + 150);
+        function drawGameOver(ctx) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.textAlign = 'center';
+            
+            if (GameState.score < 10) {
+                drawLowScoreGameOver(ctx);
+            } else {
+                drawHighScoreGameOver(ctx);
             }
+            
+            drawRestartButton(ctx);
+        }
+
+        function drawLowScoreGameOver(ctx) {
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 80px Poppins';
+            ctx.fillText(GameState.score.toString(), canvas.width / 2, canvas.height / 2 - 100);
+            
+            ctx.font = 'bold 40px Poppins';
+            if (GameState.obstacles.some(obs => obs.isCircle && obs.y + obs.size > canvas.height)) {
+                ctx.fillText("Se t'ha escapat!", canvas.width / 2, canvas.height / 2 - 20);
+                ctx.font = '24px Poppins';
+                ctx.fillText("agafa tots els cercles", canvas.width / 2, canvas.height / 2 + 30);
+            } else {
+                ctx.fillText('Has xocat!', canvas.width / 2, canvas.height / 2 - 20);
+                ctx.font = '24px Poppins';
+                ctx.fillText("evita els quadrats", canvas.width / 2, canvas.height / 2 + 30);
+            }
+        }
+
+        function drawHighScoreGameOver(ctx) {
+            ctx.font = 'bold 80px Poppins';
+            if (GameState.isNewHighScore) {
+                const gradient = ctx.createLinearGradient(
+                    canvas.width / 2 - 100, canvas.height / 2 - 40,
+                    canvas.width / 2 + 100, canvas.height / 2 + 40
+                );
+                gradient.addColorStop(0, 'rgba(255, 223, 0, 0.9)');
+                gradient.addColorStop(1, 'rgba(255, 223, 0, 0.7)');
+                ctx.fillStyle = gradient;
+                ctx.fillText(GameState.score.toString(), canvas.width / 2, canvas.height / 2);
+                
+                ctx.font = 'bold 24px Poppins';
+                ctx.fillText('NOU RÈCORD!', canvas.width / 2, canvas.height / 2 - 80);
+            } else {
+                ctx.fillStyle = 'white';
+                ctx.fillText(GameState.score.toString(), canvas.width / 2, canvas.height / 2);
+            }
+        }
+
+        function drawRestartButton(ctx) {
+            ctx.fillStyle = '#f0f0f0';
+            ctx.beginPath();
+            ctx.roundRect(canvas.width / 2 - 75, canvas.height / 2 + 80, 150, 40, 10);
+            ctx.fill();
+            ctx.strokeStyle = '#999';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 24px Poppins';
+            ctx.fillText(isMobile() ? 'TOCA' : 'ESPAI', canvas.width / 2, canvas.height / 2 + 108);
+            
+            ctx.fillStyle = 'white';
+            ctx.font = '20px Poppins';
+            ctx.fillText('per tornar-hi', canvas.width / 2, canvas.height / 2 + 150);
         }
 
         function drawStartScreen(ctx) {
