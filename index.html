@@ -209,6 +209,9 @@
 
         const obstacleInterval = 1000; // Interval mínim entre la creació d'obstacles (en mil·lisegons)
 
+        const baseObstacleDistance = 300; // Distància base entre obstacles en píxels
+        let distanceSinceLastObstacle = 0;
+
         function drawCar(x, y, color) {
             ctx.save();
             ctx.translate(x, y);
@@ -329,17 +332,16 @@
         }
 
         function createObstacle() {
-            const currentTime = Date.now();
-            if (currentTime - lastObstacleTime < obstacleInterval) return;
+            if (distanceSinceLastObstacle < baseObstacleDistance) return;
 
             const leftPair = obstacles.filter(obs => obs.lane < 2);
             const rightPair = obstacles.filter(obs => obs.lane >= 2);
 
             if (leftPair.length < maxObstaclesPerPair && Math.random() < 0.5) {
-                if (createObstacleForPair(0, 1)) lastObstacleTime = currentTime;
+                if (createObstacleForPair(0, 1)) distanceSinceLastObstacle = 0;
             }
             if (rightPair.length < maxObstaclesPerPair && Math.random() < 0.5) {
-                if (createObstacleForPair(2, 3)) lastObstacleTime = currentTime;
+                if (createObstacleForPair(2, 3)) distanceSinceLastObstacle = 0;
             }
         }
 
@@ -375,6 +377,8 @@
 
         function moveObstacles(deltaTime) {
             const moveDistance = (speed * deltaTime) / 1000; // Convertim la velocitat a píxels per mil·lisegon
+            distanceSinceLastObstacle += moveDistance;
+
             obstacles.forEach(obstacle => {
                 obstacle.y += moveDistance;
                 
@@ -401,11 +405,6 @@
                 lastAvoidedObstacle = null;
             }
             
-            // Incrementar la velocitat
-            if (speed < maxSpeed) {
-                speed += (acceleration * deltaTime) / 1000;
-            }
-
             // Assegurar-se que hi ha prou obstacles
             const leftPair = obstacles.filter(obs => obs.lane < 2);
             const rightPair = obstacles.filter(obs => obs.lane >= 2);
@@ -652,6 +651,11 @@
                 moveObstacles(deltaTime);
                 checkCollision();
                 createObstacle();
+                
+                // Incrementar la velocitat
+                if (speed < maxSpeed) {
+                    speed += (acceleration * deltaTime) / 1000;
+                }
             }
         }
 
