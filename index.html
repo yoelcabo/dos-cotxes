@@ -36,7 +36,7 @@
         }
         #controlsPanel {
             width: 100%;
-            height: 60px; /* Reduït l'alçada dels controls en desktop */
+            height: 60px;
             padding: 10px 0;
             background-color: rgba(255, 255, 255, 0.1);
             border-radius: 0 0 20px 20px;
@@ -46,7 +46,7 @@
             margin-top: -4px;
         }
         .controlKey {
-            width: 40px; /* Reduït la mida dels controls en desktop */
+            width: 40px;
             height: 40px;
             background-color: rgba(255, 255, 255, 0.2);
             border-radius: 8px;
@@ -69,16 +69,10 @@
             }
             #gameCanvas {
                 border-radius: 0;
-                height: calc(100% - 100px);
+                height: 100%; /* Ocupar tota l'alçada en mòbil */
             }
             #controlsPanel {
-                height: 100px;
-                border-radius: 0;
-            }
-            .controlKey {
-                width: 70px;
-                height: 70px;
-                font-size: 24px;
+                display: none; /* Amagar els controls en mòbil */
             }
         }
     </style>
@@ -123,7 +117,7 @@
             
             const containerWidth = container.clientWidth;
             const containerHeight = container.clientHeight;
-            const controlsPanelHeight = controlsPanel.clientHeight;
+            const controlsPanelHeight = isMobile() ? 0 : controlsPanel.clientHeight;
             
             canvas.width = containerWidth;
             canvas.height = containerHeight - controlsPanelHeight;
@@ -629,12 +623,14 @@
             }
 
             let lane;
-            if (event.target.classList.contains('controlKey')) {
-                lane = parseInt(event.target.getAttribute('data-lane'));
-            } else {
+            if (isMobile()) {
                 const rect = canvas.getBoundingClientRect();
                 const x = event.clientX - rect.left;
                 lane = Math.floor(x / laneWidth);
+            } else if (event.target.classList.contains('controlKey')) {
+                lane = parseInt(event.target.getAttribute('data-lane'));
+            } else {
+                return; // Ignorar clics fora dels controls en desktop
             }
 
             const currentTime = performance.now();
@@ -723,30 +719,17 @@
             return aspectRatio <= 9/16;
         }
 
-        // Afegeix un event listener per resize per actualitzar la interfície quan canvia la mida de la finestra
-        window.addEventListener('resize', function() {
-            // Actualitza els controls i la interfície si cal
-            if (gameStarted && !gameOver) {
-                drawGame();
-            } else if (!gameStarted) {
-                drawStartScreen();
-            }
-        });
-
         function updateControlsDisplay() {
-            const isMobileDevice = isMobile();
-            const controls = document.querySelectorAll('.controlKey');
-            controls[0].textContent = isMobileDevice ? '←' : 'A';
-            controls[1].textContent = isMobileDevice ? '→' : 'D';
-            // Les altres dues fletxes ja són correctes per a ambdós casos
+            const controlsPanel = document.getElementById('controlsPanel');
+            if (isMobile()) {
+                controlsPanel.style.display = 'none';
+            } else {
+                controlsPanel.style.display = 'flex';
+                const controls = document.querySelectorAll('.controlKey');
+                controls[0].textContent = 'A';
+                controls[1].textContent = 'D';
+            }
         }
-
-        // Executa updateControlsDisplay immediatament després de definir-la
-        updateControlsDisplay();
-
-        // Mantenim els event listeners per si canvia la mida de la finestra
-        window.addEventListener('load', updateControlsDisplay);
-        window.addEventListener('resize', updateControlsDisplay);
 
         // Inicialitzar el joc
         window.addEventListener('load', function() {
@@ -754,7 +737,15 @@
             updateControlsDisplay();
             requestAnimationFrame(gameLoop);
         });
-        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('resize', function() {
+            resizeCanvas();
+            updateControlsDisplay();
+            if (gameStarted && !gameOver) {
+                drawGame();
+            } else if (!gameStarted) {
+                drawStartScreen();
+            }
+        });
         document.getElementById('gameContainer').addEventListener('click', handleClick);
         document.getElementById('gameContainer').addEventListener('touchstart', function(event) {
             event.preventDefault();
