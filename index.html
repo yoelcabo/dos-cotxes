@@ -149,8 +149,13 @@
                 const carHeight = carWidth * 1.6;
                 const initialY = canvas.height - GameConfig.bottomMargin - carHeight;
                 
-                this.car1 = new Car(canvas.width / 4 - carWidth / 2, initialY, 0, this.laneWidth / 2 - carWidth / 2, GameConfig.carColors.left);
-                this.car2 = new Car(3 * canvas.width / 4 - carWidth / 2, initialY, 3, 3 * this.laneWidth + this.laneWidth / 2 - carWidth / 2, GameConfig.carColors.right);
+                // Inicialitzar els cotxes a les seves posicions inicials
+                this.car1 = new Car(0, GameConfig.carColors.left, canvas.width / 4 - carWidth / 2);
+                this.car2 = new Car(3, GameConfig.carColors.right, 3 * canvas.width / 4 - carWidth / 2);
+                
+                // Establir les posicions objectiu dels cotxes
+                this.car1.targetX = this.laneWidth / 2 - carWidth / 2;
+                this.car2.targetX = 3 * this.laneWidth + this.laneWidth / 2 - carWidth / 2;
                 
                 this.obstacles = [];
                 this.score = 0;
@@ -186,12 +191,15 @@
                 const createForSide = (startLane) => {
                     const pair = this.obstacles.filter(obs => obs.lane >= startLane && obs.lane < startLane + 2);
                     if (pair.length < GameConfig.maxObstaclesPerPair && Math.random() < 0.5) {
-                        if (this.createObstacleForPair(startLane, startLane + 1)) this.distanceSinceLastObstacle = 0;
+                        if (this.createObstacleForPair(startLane, startLane + 1)) {
+                            this.distanceSinceLastObstacle = 0;
+                            return true;
+                        }
                     }
+                    return false;
                 };
 
-                createForSide(0); // Left side
-                createForSide(2); // Right side
+                return createForSide(0) || createForSide(2);
             },
 
             createObstacleForPair(lane1, lane2) {
@@ -212,10 +220,7 @@
                     ? (isCircle ? GameConfig.obstacleColors.leftCircle : GameConfig.obstacleColors.leftSquare)
                     : (isCircle ? GameConfig.obstacleColors.rightCircle : GameConfig.obstacleColors.rightSquare);
 
-                const obstacleSize = Math.min(40, this.laneWidth * 0.6);
                 const newObstacle = new Obstacle(
-                    lane * this.laneWidth + this.laneWidth / 2 - obstacleSize / 2,
-                    -obstacleSize,
                     lane,
                     isCircle,
                     obstacleColor
@@ -295,7 +300,7 @@
                 
                 const updateCarPosition = (car, transitionStart, transitionDuration) => {
                     const progress = Math.min((currentTime - transitionStart) / transitionDuration, 1);
-                    car.updatePosition(progress);
+                    car.move(progress);
                     return progress === 1;
                 };
 
@@ -324,39 +329,64 @@
                         this.car2TransitionStart = 0;
                     }
                 }
+            },
+
+            moveCar(car, newLane) {
+                if (newLane >= 0 && newLane <= 3 && newLane !== car.lane) {
+                    car.lane = newLane;
+                    car.targetX = car.lane * this.laneWidth + this.laneWidth / 2 - car.width / 2;
+                    return true;
+                }
+                return false;
             }
         };
 
         // Classes
         class Car {
-            constructor(x, y, lane, targetX, color) {
-                this.x = x;
-                this.y = y;
+            constructor(lane, color, initialX) {
                 this.lane = lane;
-                this.targetX = targetX;
                 this.color = color;
+                this.x = initialX;
+                this.updateDimensions();
+                this.targetX = this.x; // Inicialitzem targetX amb la posició actual
+            }
+
+            updateDimensions() {
                 this.width = Math.min(50, GameState.laneWidth * 0.8);
                 this.height = this.width * 1.6;
+                this.y = canvas.height - this.height - GameConfig.bottomMargin;
+                this.updatePosition();
+            }
+
+            updatePosition() {
+                this.targetX = this.lane * GameState.laneWidth + GameState.laneWidth / 2 - this.width / 2;
+                if (this.x === undefined) {
+                    this.x = this.targetX;
+                }
             }
 
             draw(ctx) {
                 drawCar(ctx, this.x, this.y, this.color, this.width, this.height);
             }
 
-            updatePosition(progress) {
+            move(progress) {
                 this.x = this.x + (this.targetX - this.x) * progress;
             }
         }
 
         class Obstacle {
-            constructor(x, y, lane, isCircle, color) {
-                this.x = x;
-                this.y = y;
+            constructor(lane, isCircle, color) {
                 this.lane = lane;
                 this.isCircle = isCircle;
                 this.color = color;
                 this.avoided = false;
+                this.updateDimensions();
+            }
+
+            updateDimensions() {
                 this.size = Math.min(40, GameState.laneWidth * 0.6);
+                this.x = this.lane * GameState.laneWidth + GameState.laneWidth / 2 - this.size / 2;
+                this.y = -this.size;
             }
 
             draw(ctx) {
@@ -616,8 +646,8 @@
             
             // Dibuixar els cotxes a la part inferior amb el marge ajustat
             const carY = canvas.height - GameState.car1.height - GameConfig.bottomMargin;
-            drawCar(ctx, canvas.width / 4 - GameState.car1.width / 2, carY, GameState.car1.color, GameState.car1.width, GameState.car1.height);
-            drawCar(ctx, 3 * canvas.width / 4 - GameState.car2.width / 2, carY, GameState.car2.color, GameState.car2.width, GameState.car2.height);
+            GameState.car1.draw(ctx);
+            GameState.car2.draw(ctx);
             
             // Dibuixar el botó d'inici
             ctx.fillStyle = '#f0f0f0';
@@ -656,25 +686,12 @@
             if (GameState.car1 && GameState.car2) {
                 const scaleFactor = GameState.laneWidth / oldLaneWidth;
                 
-                GameState.car1.x *= scaleFactor;
-                GameState.car1.targetX *= scaleFactor;
-                GameState.car2.x *= scaleFactor;
-                GameState.car2.targetX *= scaleFactor;
-                
-                GameState.car1.width = Math.min(50, GameState.laneWidth * 0.8);
-                GameState.car1.height = GameState.car1.width * 1.6;
-                GameState.car2.width = Math.min(50, GameState.laneWidth * 0.8);
-                GameState.car2.height = GameState.car2.width * 1.6;
-                
-                GameState.car1.y = canvas.height - GameState.car1.height - GameConfig.bottomMargin;
-                GameState.car2.y = canvas.height - GameState.car2.height - GameConfig.bottomMargin;
+                GameState.car1.updateDimensions();
+                GameState.car2.updateDimensions();
                 
                 GameState.obstacles.forEach(obstacle => {
-                    obstacle.x *= scaleFactor;
-                    obstacle.y *= canvas.height / (containerHeight - controlsPanelHeight);
+                    obstacle.updateDimensions();
                 });
-                
-                obstacleSize = Math.min(40, GameState.laneWidth * 0.6);
             } else {
                 GameState.initialize();
             }
@@ -731,43 +748,30 @@
                 const rect = canvas.getBoundingClientRect();
                 const x = event.clientX - rect.left;
                 lane = Math.floor(x / GameState.laneWidth);
-            } else if (event.target.classList.contains('controlKey')) {
-                lane = parseInt(event.target.getAttribute('data-lane'));
             } else {
-                return; // Ignorar clics fora dels controls en desktop
+                // Per a desktop, comprovem si el clic és en un botó de control o en el canvas
+                if (event.target.classList.contains('controlKey')) {
+                    lane = parseInt(event.target.getAttribute('data-lane'));
+                } else if (event.target === canvas) {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = event.clientX - rect.left;
+                    lane = Math.floor(x / GameState.laneWidth);
+                } else {
+                    return; // Ignorar clics fora del canvas i dels controls en desktop
+                }
             }
 
             const currentTime = performance.now();
 
             if (lane < 2) {
                 // Cotxe esquerre
-                if (lane < GameState.car1.lane) {
-                    if (GameState.car1.lane > 0) {
-                        GameState.car1.lane--;
-                        GameState.car1.targetX = GameState.car1.lane * GameState.laneWidth + GameState.laneWidth / 2 - GameState.car1.width / 2;
-                        GameState.car1TransitionStart = currentTime;
-                    }
-                } else if (lane > GameState.car1.lane) {
-                    if (GameState.car1.lane < 1) {
-                        GameState.car1.lane++;
-                        GameState.car1.targetX = GameState.car1.lane * GameState.laneWidth + GameState.laneWidth / 2 - GameState.car1.width / 2;
-                        GameState.car1TransitionStart = currentTime;
-                    }
+                if (GameState.moveCar(GameState.car1, lane)) {
+                    GameState.car1TransitionStart = currentTime;
                 }
             } else {
                 // Cotxe dret
-                if (lane < GameState.car2.lane) {
-                    if (GameState.car2.lane > 2) {
-                        GameState.car2.lane--;
-                        GameState.car2.targetX = GameState.car2.lane * GameState.laneWidth + GameState.laneWidth / 2 - GameState.car2.width / 2;
-                        GameState.car2TransitionStart = currentTime;
-                    }
-                } else if (lane > GameState.car2.lane) {
-                    if (GameState.car2.lane < 3) {
-                        GameState.car2.lane++;
-                        GameState.car2.targetX = GameState.car2.lane * GameState.laneWidth + GameState.laneWidth / 2 - GameState.car2.width / 2;
-                        GameState.car2TransitionStart = currentTime;
-                    }
+                if (GameState.moveCar(GameState.car2, lane)) {
+                    GameState.car2TransitionStart = currentTime;
                 }
             }
         }
@@ -787,31 +791,23 @@
             switch(event.key) {
                 case 'a':
                 case 'A':
-                    if (GameState.car1.lane > 0) {
-                        GameState.car1.lane--;
-                        GameState.car1.targetX = GameState.car1.lane * GameState.laneWidth + GameState.laneWidth / 2 - GameState.car1.width / 2;
+                    if (GameState.moveCar(GameState.car1, GameState.car1.lane - 1)) {
                         GameState.car1TransitionStart = currentTime;
                     }
                     break;
                 case 'd':
                 case 'D':
-                    if (GameState.car1.lane < 1) {
-                        GameState.car1.lane++;
-                        GameState.car1.targetX = GameState.car1.lane * GameState.laneWidth + GameState.laneWidth / 2 - GameState.car1.width / 2;
+                    if (GameState.moveCar(GameState.car1, GameState.car1.lane + 1)) {
                         GameState.car1TransitionStart = currentTime;
                     }
                     break;
                 case 'ArrowLeft':
-                    if (GameState.car2.lane > 2) {
-                        GameState.car2.lane--;
-                        GameState.car2.targetX = GameState.car2.lane * GameState.laneWidth + GameState.laneWidth / 2 - GameState.car2.width / 2;
+                    if (GameState.moveCar(GameState.car2, GameState.car2.lane - 1)) {
                         GameState.car2TransitionStart = currentTime;
                     }
                     break;
                 case 'ArrowRight':
-                    if (GameState.car2.lane < 3) {
-                        GameState.car2.lane++;
-                        GameState.car2.targetX = GameState.car2.lane * GameState.laneWidth + GameState.laneWidth / 2 - GameState.car2.width / 2;
+                    if (GameState.moveCar(GameState.car2, GameState.car2.lane + 1)) {
                         GameState.car2TransitionStart = currentTime;
                     }
                     break;
